@@ -9772,4 +9772,5076 @@ function filterFilter() {
     }
     var filtered = [];
     for ( var j = 0; j < array.length; j++) {
-      var value = array[
+      var value = array[j];
+      if (predicates.check(value)) {
+        filtered.push(value);
+      }
+    }
+    return filtered;
+  }
+}
+
+/**
+ * @ngdoc filter
+ * @name ng.filter:currency
+ * @function
+ *
+ * @description
+ * Formats a number as a currency (ie $1,234.56). When no currency symbol is provided, default
+ * symbol for current locale is used.
+ *
+ * @param {number} amount Input to filter.
+ * @param {string=} symbol Currency symbol or identifier to be displayed.
+ * @returns {string} Formatted number.
+ *
+ *
+ * @example
+   <doc:example>
+     <doc:source>
+       <script>
+         function Ctrl($scope) {
+           $scope.amount = 1234.56;
+         }
+       </script>
+       <div ng-controller="Ctrl">
+         <input type="number" ng-model="amount"> <br>
+         default currency symbol ($): {{amount | currency}}<br>
+         custom currency identifier (USD$): {{amount | currency:"USD$"}}
+       </div>
+     </doc:source>
+     <doc:scenario>
+       it('should init with 1234.56', function() {
+         expect(binding('amount | currency')).toBe('$1,234.56');
+         expect(binding('amount | currency:"USD$"')).toBe('USD$1,234.56');
+       });
+       it('should update', function() {
+         input('amount').enter('-1234');
+         expect(binding('amount | currency')).toBe('($1,234.00)');
+         expect(binding('amount | currency:"USD$"')).toBe('(USD$1,234.00)');
+       });
+     </doc:scenario>
+   </doc:example>
+ */
+currencyFilter.$inject = ['$locale'];
+function currencyFilter($locale) {
+  var formats = $locale.NUMBER_FORMATS;
+  return function(amount, currencySymbol){
+    if (isUndefined(currencySymbol)) currencySymbol = formats.CURRENCY_SYM;
+    return formatNumber(amount, formats.PATTERNS[1], formats.GROUP_SEP, formats.DECIMAL_SEP, 2).
+                replace(/\u00A4/g, currencySymbol);
+  };
+}
+
+/**
+ * @ngdoc filter
+ * @name ng.filter:number
+ * @function
+ *
+ * @description
+ * Formats a number as text.
+ *
+ * If the input is not a number an empty string is returned.
+ *
+ * @param {number|string} number Number to format.
+ * @param {(number|string)=} [fractionSize=2] Number of decimal places to round the number to.
+ * @returns {string} Number rounded to decimalPlaces and places a â€œ,â€ after each third digit.
+ *
+ * @example
+   <doc:example>
+     <doc:source>
+       <script>
+         function Ctrl($scope) {
+           $scope.val = 1234.56789;
+         }
+       </script>
+       <div ng-controller="Ctrl">
+         Enter number: <input ng-model='val'><br>
+         Default formatting: {{val | number}}<br>
+         No fractions: {{val | number:0}}<br>
+         Negative number: {{-val | number:4}}
+       </div>
+     </doc:source>
+     <doc:scenario>
+       it('should format numbers', function() {
+         expect(binding('val | number')).toBe('1,234.568');
+         expect(binding('val | number:0')).toBe('1,235');
+         expect(binding('-val | number:4')).toBe('-1,234.5679');
+       });
+
+       it('should update', function() {
+         input('val').enter('3374.333');
+         expect(binding('val | number')).toBe('3,374.333');
+         expect(binding('val | number:0')).toBe('3,374');
+         expect(binding('-val | number:4')).toBe('-3,374.3330');
+       });
+     </doc:scenario>
+   </doc:example>
+ */
+
+
+numberFilter.$inject = ['$locale'];
+function numberFilter($locale) {
+  var formats = $locale.NUMBER_FORMATS;
+  return function(number, fractionSize) {
+    return formatNumber(number, formats.PATTERNS[0], formats.GROUP_SEP, formats.DECIMAL_SEP,
+      fractionSize);
+  };
+}
+
+var DECIMAL_SEP = '.';
+function formatNumber(number, pattern, groupSep, decimalSep, fractionSize) {
+  if (isNaN(number) || !isFinite(number)) return '';
+
+  var isNegative = number < 0;
+  number = Math.abs(number);
+  var numStr = number + '',
+      formatedText = '',
+      parts = [];
+
+  var hasExponent = false;
+  if (numStr.indexOf('e') !== -1) {
+    var match = numStr.match(/([\d\.]+)e(-?)(\d+)/);
+    if (match && match[2] == '-' && match[3] > fractionSize + 1) {
+      numStr = '0';
+    } else {
+      formatedText = numStr;
+      hasExponent = true;
+    }
+  }
+
+  if (!hasExponent) {
+    var fractionLen = (numStr.split(DECIMAL_SEP)[1] || '').length;
+
+    // determine fractionSize if it is not specified
+    if (isUndefined(fractionSize)) {
+      fractionSize = Math.min(Math.max(pattern.minFrac, fractionLen), pattern.maxFrac);
+    }
+
+    var pow = Math.pow(10, fractionSize);
+    number = Math.round(number * pow) / pow;
+    var fraction = ('' + number).split(DECIMAL_SEP);
+    var whole = fraction[0];
+    fraction = fraction[1] || '';
+
+    var pos = 0,
+        lgroup = pattern.lgSize,
+        group = pattern.gSize;
+
+    if (whole.length >= (lgroup + group)) {
+      pos = whole.length - lgroup;
+      for (var i = 0; i < pos; i++) {
+        if ((pos - i)%group === 0 && i !== 0) {
+          formatedText += groupSep;
+        }
+        formatedText += whole.charAt(i);
+      }
+    }
+
+    for (i = pos; i < whole.length; i++) {
+      if ((whole.length - i)%lgroup === 0 && i !== 0) {
+        formatedText += groupSep;
+      }
+      formatedText += whole.charAt(i);
+    }
+
+    // format fraction part.
+    while(fraction.length < fractionSize) {
+      fraction += '0';
+    }
+
+    if (fractionSize && fractionSize !== "0") formatedText += decimalSep + fraction.substr(0, fractionSize);
+  }
+
+  parts.push(isNegative ? pattern.negPre : pattern.posPre);
+  parts.push(formatedText);
+  parts.push(isNegative ? pattern.negSuf : pattern.posSuf);
+  return parts.join('');
+}
+
+function padNumber(num, digits, trim) {
+  var neg = '';
+  if (num < 0) {
+    neg =  '-';
+    num = -num;
+  }
+  num = '' + num;
+  while(num.length < digits) num = '0' + num;
+  if (trim)
+    num = num.substr(num.length - digits);
+  return neg + num;
+}
+
+
+function dateGetter(name, size, offset, trim) {
+  offset = offset || 0;
+  return function(date) {
+    var value = date['get' + name]();
+    if (offset > 0 || value > -offset)
+      value += offset;
+    if (value === 0 && offset == -12 ) value = 12;
+    return padNumber(value, size, trim);
+  };
+}
+
+function dateStrGetter(name, shortForm) {
+  return function(date, formats) {
+    var value = date['get' + name]();
+    var get = uppercase(shortForm ? ('SHORT' + name) : name);
+
+    return formats[get][value];
+  };
+}
+
+function timeZoneGetter(date) {
+  var zone = -1 * date.getTimezoneOffset();
+  var paddedZone = (zone >= 0) ? "+" : "";
+
+  paddedZone += padNumber(Math[zone > 0 ? 'floor' : 'ceil'](zone / 60), 2) +
+                padNumber(Math.abs(zone % 60), 2);
+
+  return paddedZone;
+}
+
+function ampmGetter(date, formats) {
+  return date.getHours() < 12 ? formats.AMPMS[0] : formats.AMPMS[1];
+}
+
+var DATE_FORMATS = {
+  yyyy: dateGetter('FullYear', 4),
+    yy: dateGetter('FullYear', 2, 0, true),
+     y: dateGetter('FullYear', 1),
+  MMMM: dateStrGetter('Month'),
+   MMM: dateStrGetter('Month', true),
+    MM: dateGetter('Month', 2, 1),
+     M: dateGetter('Month', 1, 1),
+    dd: dateGetter('Date', 2),
+     d: dateGetter('Date', 1),
+    HH: dateGetter('Hours', 2),
+     H: dateGetter('Hours', 1),
+    hh: dateGetter('Hours', 2, -12),
+     h: dateGetter('Hours', 1, -12),
+    mm: dateGetter('Minutes', 2),
+     m: dateGetter('Minutes', 1),
+    ss: dateGetter('Seconds', 2),
+     s: dateGetter('Seconds', 1),
+  EEEE: dateStrGetter('Day'),
+   EEE: dateStrGetter('Day', true),
+     a: ampmGetter,
+     Z: timeZoneGetter
+};
+
+var DATE_FORMATS_SPLIT = /((?:[^yMdHhmsaZE']+)|(?:'(?:[^']|'')*')|(?:E+|y+|M+|d+|H+|h+|m+|s+|a|Z))(.*)/,
+    NUMBER_STRING = /^\d+$/;
+
+/**
+ * @ngdoc filter
+ * @name ng.filter:date
+ * @function
+ *
+ * @description
+ *   Formats `date` to a string based on the requested `format`.
+ *
+ *   `format` string can be composed of the following elements:
+ *
+ *   * `'yyyy'`: 4 digit representation of year (e.g. AD 1 => 0001, AD 2010 => 2010)
+ *   * `'yy'`: 2 digit representation of year, padded (00-99). (e.g. AD 2001 => 01, AD 2010 => 10)
+ *   * `'y'`: 1 digit representation of year, e.g. (AD 1 => 1, AD 199 => 199)
+ *   * `'MMMM'`: Month in year (January-December)
+ *   * `'MMM'`: Month in year (Jan-Dec)
+ *   * `'MM'`: Month in year, padded (01-12)
+ *   * `'M'`: Month in year (1-12)
+ *   * `'dd'`: Day in month, padded (01-31)
+ *   * `'d'`: Day in month (1-31)
+ *   * `'EEEE'`: Day in Week,(Sunday-Saturday)
+ *   * `'EEE'`: Day in Week, (Sun-Sat)
+ *   * `'HH'`: Hour in day, padded (00-23)
+ *   * `'H'`: Hour in day (0-23)
+ *   * `'hh'`: Hour in am/pm, padded (01-12)
+ *   * `'h'`: Hour in am/pm, (1-12)
+ *   * `'mm'`: Minute in hour, padded (00-59)
+ *   * `'m'`: Minute in hour (0-59)
+ *   * `'ss'`: Second in minute, padded (00-59)
+ *   * `'s'`: Second in minute (0-59)
+ *   * `'a'`: am/pm marker
+ *   * `'Z'`: 4 digit (+sign) representation of the timezone offset (-1200-+1200)
+ *
+ *   `format` string can also be one of the following predefined
+ *   {@link guide/i18n localizable formats}:
+ *
+ *   * `'medium'`: equivalent to `'MMM d, y h:mm:ss a'` for en_US locale
+ *     (e.g. Sep 3, 2010 12:05:08 pm)
+ *   * `'short'`: equivalent to `'M/d/yy h:mm a'` for en_US  locale (e.g. 9/3/10 12:05 pm)
+ *   * `'fullDate'`: equivalent to `'EEEE, MMMM d,y'` for en_US  locale
+ *     (e.g. Friday, September 3, 2010)
+ *   * `'longDate'`: equivalent to `'MMMM d, y'` for en_US  locale (e.g. September 3, 2010
+ *   * `'mediumDate'`: equivalent to `'MMM d, y'` for en_US  locale (e.g. Sep 3, 2010)
+ *   * `'shortDate'`: equivalent to `'M/d/yy'` for en_US locale (e.g. 9/3/10)
+ *   * `'mediumTime'`: equivalent to `'h:mm:ss a'` for en_US locale (e.g. 12:05:08 pm)
+ *   * `'shortTime'`: equivalent to `'h:mm a'` for en_US locale (e.g. 12:05 pm)
+ *
+ *   `format` string can contain literal values. These need to be quoted with single quotes (e.g.
+ *   `"h 'in the morning'"`). In order to output single quote, use two single quotes in a sequence
+ *   (e.g. `"h o''clock"`).
+ *
+ * @param {(Date|number|string)} date Date to format either as Date object, milliseconds (string or
+ *    number) or various ISO 8601 datetime string formats (e.g. yyyy-MM-ddTHH:mm:ss.SSSZ and its
+ *    shorter versions like yyyy-MM-ddTHH:mmZ, yyyy-MM-dd or yyyyMMddTHHmmssZ). If no timezone is
+ *    specified in the string input, the time is considered to be in the local timezone.
+ * @param {string=} format Formatting rules (see Description). If not specified,
+ *    `mediumDate` is used.
+ * @returns {string} Formatted string or the input if input is not recognized as date/millis.
+ *
+ * @example
+   <doc:example>
+     <doc:source>
+       <span ng-non-bindable>{{1288323623006 | date:'medium'}}</span>:
+           {{1288323623006 | date:'medium'}}<br>
+       <span ng-non-bindable>{{1288323623006 | date:'yyyy-MM-dd HH:mm:ss Z'}}</span>:
+          {{1288323623006 | date:'yyyy-MM-dd HH:mm:ss Z'}}<br>
+       <span ng-non-bindable>{{1288323623006 | date:'MM/dd/yyyy @ h:mma'}}</span>:
+          {{'1288323623006' | date:'MM/dd/yyyy @ h:mma'}}<br>
+     </doc:source>
+     <doc:scenario>
+       it('should format date', function() {
+         expect(binding("1288323623006 | date:'medium'")).
+            toMatch(/Oct 2\d, 2010 \d{1,2}:\d{2}:\d{2} (AM|PM)/);
+         expect(binding("1288323623006 | date:'yyyy-MM-dd HH:mm:ss Z'")).
+            toMatch(/2010\-10\-2\d \d{2}:\d{2}:\d{2} (\-|\+)?\d{4}/);
+         expect(binding("'1288323623006' | date:'MM/dd/yyyy @ h:mma'")).
+            toMatch(/10\/2\d\/2010 @ \d{1,2}:\d{2}(AM|PM)/);
+       });
+     </doc:scenario>
+   </doc:example>
+ */
+dateFilter.$inject = ['$locale'];
+function dateFilter($locale) {
+
+
+  var R_ISO8601_STR = /^(\d{4})-?(\d\d)-?(\d\d)(?:T(\d\d)(?::?(\d\d)(?::?(\d\d)(?:\.(\d+))?)?)?(Z|([+-])(\d\d):?(\d\d))?)?$/;
+  function jsonStringToDate(string){
+    var match;
+    if (match = string.match(R_ISO8601_STR)) {
+      var date = new Date(0),
+          tzHour = 0,
+          tzMin  = 0;
+      if (match[9]) {
+        tzHour = int(match[9] + match[10]);
+        tzMin = int(match[9] + match[11]);
+      }
+      date.setUTCFullYear(int(match[1]), int(match[2]) - 1, int(match[3]));
+      date.setUTCHours(int(match[4]||0) - tzHour, int(match[5]||0) - tzMin, int(match[6]||0), int(match[7]||0));
+      return date;
+    }
+    return string;
+  }
+
+
+  return function(date, format) {
+    var text = '',
+        parts = [],
+        fn, match;
+
+    format = format || 'mediumDate';
+    format = $locale.DATETIME_FORMATS[format] || format;
+    if (isString(date)) {
+      if (NUMBER_STRING.test(date)) {
+        date = int(date);
+      } else {
+        date = jsonStringToDate(date);
+      }
+    }
+
+    if (isNumber(date)) {
+      date = new Date(date);
+    }
+
+    if (!isDate(date)) {
+      return date;
+    }
+
+    while(format) {
+      match = DATE_FORMATS_SPLIT.exec(format);
+      if (match) {
+        parts = concat(parts, match, 1);
+        format = parts.pop();
+      } else {
+        parts.push(format);
+        format = null;
+      }
+    }
+
+    forEach(parts, function(value){
+      fn = DATE_FORMATS[value];
+      text += fn ? fn(date, $locale.DATETIME_FORMATS)
+                 : value.replace(/(^'|'$)/g, '').replace(/''/g, "'");
+    });
+
+    return text;
+  };
+}
+
+
+/**
+ * @ngdoc filter
+ * @name ng.filter:json
+ * @function
+ *
+ * @description
+ *   Allows you to convert a JavaScript object into JSON string.
+ *
+ *   This filter is mostly useful for debugging. When using the double curly {{value}} notation
+ *   the binding is automatically converted to JSON.
+ *
+ * @param {*} object Any JavaScript object (including arrays and primitive types) to filter.
+ * @returns {string} JSON string.
+ *
+ *
+ * @example:
+   <doc:example>
+     <doc:source>
+       <pre>{{ {'name':'value'} | json }}</pre>
+     </doc:source>
+     <doc:scenario>
+       it('should jsonify filtered objects', function() {
+         expect(binding("{'name':'value'}")).toMatch(/\{\n  "name": ?"value"\n}/);
+       });
+     </doc:scenario>
+   </doc:example>
+ *
+ */
+function jsonFilter() {
+  return function(object) {
+    return toJson(object, true);
+  };
+}
+
+
+/**
+ * @ngdoc filter
+ * @name ng.filter:lowercase
+ * @function
+ * @description
+ * Converts string to lowercase.
+ * @see angular.lowercase
+ */
+var lowercaseFilter = valueFn(lowercase);
+
+
+/**
+ * @ngdoc filter
+ * @name ng.filter:uppercase
+ * @function
+ * @description
+ * Converts string to uppercase.
+ * @see angular.uppercase
+ */
+var uppercaseFilter = valueFn(uppercase);
+
+/**
+ * @ngdoc function
+ * @name ng.filter:limitTo
+ * @function
+ *
+ * @description
+ * Creates a new array containing only a specified number of elements in an array. The elements
+ * are taken from either the beginning or the end of the source array, as specified by the
+ * value and sign (positive or negative) of `limit`.
+ *
+ * Note: This function is used to augment the `Array` type in Angular expressions. See
+ * {@link ng.$filter} for more information about Angular arrays.
+ *
+ * @param {Array} array Source array to be limited.
+ * @param {string|Number} limit The length of the returned array. If the `limit` number is
+ *     positive, `limit` number of items from the beginning of the source array are copied.
+ *     If the number is negative, `limit` number  of items from the end of the source array are
+ *     copied. The `limit` will be trimmed if it exceeds `array.length`
+ * @returns {Array} A new sub-array of length `limit` or less if input array had less than `limit`
+ *     elements.
+ *
+ * @example
+   <doc:example>
+     <doc:source>
+       <script>
+         function Ctrl($scope) {
+           $scope.numbers = [1,2,3,4,5,6,7,8,9];
+           $scope.limit = 3;
+         }
+       </script>
+       <div ng-controller="Ctrl">
+         Limit {{numbers}} to: <input type="integer" ng-model="limit">
+         <p>Output: {{ numbers | limitTo:limit }}</p>
+       </div>
+     </doc:source>
+     <doc:scenario>
+       it('should limit the numer array to first three items', function() {
+         expect(element('.doc-example-live input[ng-model=limit]').val()).toBe('3');
+         expect(binding('numbers | limitTo:limit')).toEqual('[1,2,3]');
+       });
+
+       it('should update the output when -3 is entered', function() {
+         input('limit').enter(-3);
+         expect(binding('numbers | limitTo:limit')).toEqual('[7,8,9]');
+       });
+
+       it('should not exceed the maximum size of input array', function() {
+         input('limit').enter(100);
+         expect(binding('numbers | limitTo:limit')).toEqual('[1,2,3,4,5,6,7,8,9]');
+       });
+     </doc:scenario>
+   </doc:example>
+ */
+function limitToFilter(){
+  return function(array, limit) {
+    if (!(array instanceof Array)) return array;
+    limit = int(limit);
+    var out = [],
+      i, n;
+
+    // check that array is iterable
+    if (!array || !(array instanceof Array))
+      return out;
+
+    // if abs(limit) exceeds maximum length, trim it
+    if (limit > array.length)
+      limit = array.length;
+    else if (limit < -array.length)
+      limit = -array.length;
+
+    if (limit > 0) {
+      i = 0;
+      n = limit;
+    } else {
+      i = array.length + limit;
+      n = array.length;
+    }
+
+    for (; i<n; i++) {
+      out.push(array[i]);
+    }
+
+    return out;
+  }
+}
+
+/**
+ * @ngdoc function
+ * @name ng.filter:orderBy
+ * @function
+ *
+ * @description
+ * Orders a specified `array` by the `expression` predicate.
+ *
+ * Note: this function is used to augment the `Array` type in Angular expressions. See
+ * {@link ng.$filter} for more informaton about Angular arrays.
+ *
+ * @param {Array} array The array to sort.
+ * @param {function(*)|string|Array.<(function(*)|string)>} expression A predicate to be
+ *    used by the comparator to determine the order of elements.
+ *
+ *    Can be one of:
+ *
+ *    - `function`: Getter function. The result of this function will be sorted using the
+ *      `<`, `=`, `>` operator.
+ *    - `string`: An Angular expression which evaluates to an object to order by, such as 'name'
+ *      to sort by a property called 'name'. Optionally prefixed with `+` or `-` to control
+ *      ascending or descending sort order (for example, +name or -name).
+ *    - `Array`: An array of function or string predicates. The first predicate in the array
+ *      is used for sorting, but when two items are equivalent, the next predicate is used.
+ *
+ * @param {boolean=} reverse Reverse the order the array.
+ * @returns {Array} Sorted copy of the source array.
+ *
+ * @example
+   <doc:example>
+     <doc:source>
+       <script>
+         function Ctrl($scope) {
+           $scope.friends =
+               [{name:'John', phone:'555-1212', age:10},
+                {name:'Mary', phone:'555-9876', age:19},
+                {name:'Mike', phone:'555-4321', age:21},
+                {name:'Adam', phone:'555-5678', age:35},
+                {name:'Julie', phone:'555-8765', age:29}]
+           $scope.predicate = '-age';
+         }
+       </script>
+       <div ng-controller="Ctrl">
+         <pre>Sorting predicate = {{predicate}}; reverse = {{reverse}}</pre>
+         <hr/>
+         [ <a href="" ng-click="predicate=''">unsorted</a> ]
+         <table class="friend">
+           <tr>
+             <th><a href="" ng-click="predicate = 'name'; reverse=false">Name</a>
+                 (<a href ng-click="predicate = '-name'; reverse=false">^</a>)</th>
+             <th><a href="" ng-click="predicate = 'phone'; reverse=!reverse">Phone Number</a></th>
+             <th><a href="" ng-click="predicate = 'age'; reverse=!reverse">Age</a></th>
+           </tr>
+           <tr ng-repeat="friend in friends | orderBy:predicate:reverse">
+             <td>{{friend.name}}</td>
+             <td>{{friend.phone}}</td>
+             <td>{{friend.age}}</td>
+           </tr>
+         </table>
+       </div>
+     </doc:source>
+     <doc:scenario>
+       it('should be reverse ordered by aged', function() {
+         expect(binding('predicate')).toBe('-age');
+         expect(repeater('table.friend', 'friend in friends').column('friend.age')).
+           toEqual(['35', '29', '21', '19', '10']);
+         expect(repeater('table.friend', 'friend in friends').column('friend.name')).
+           toEqual(['Adam', 'Julie', 'Mike', 'Mary', 'John']);
+       });
+
+       it('should reorder the table when user selects different predicate', function() {
+         element('.doc-example-live a:contains("Name")').click();
+         expect(repeater('table.friend', 'friend in friends').column('friend.name')).
+           toEqual(['Adam', 'John', 'Julie', 'Mary', 'Mike']);
+         expect(repeater('table.friend', 'friend in friends').column('friend.age')).
+           toEqual(['35', '10', '29', '19', '21']);
+
+         element('.doc-example-live a:contains("Phone")').click();
+         expect(repeater('table.friend', 'friend in friends').column('friend.phone')).
+           toEqual(['555-9876', '555-8765', '555-5678', '555-4321', '555-1212']);
+         expect(repeater('table.friend', 'friend in friends').column('friend.name')).
+           toEqual(['Mary', 'Julie', 'Adam', 'Mike', 'John']);
+       });
+     </doc:scenario>
+   </doc:example>
+ */
+orderByFilter.$inject = ['$parse'];
+function orderByFilter($parse){
+  return function(array, sortPredicate, reverseOrder) {
+    if (!isArray(array)) return array;
+    if (!sortPredicate) return array;
+    sortPredicate = isArray(sortPredicate) ? sortPredicate: [sortPredicate];
+    sortPredicate = map(sortPredicate, function(predicate){
+      var descending = false, get = predicate || identity;
+      if (isString(predicate)) {
+        if ((predicate.charAt(0) == '+' || predicate.charAt(0) == '-')) {
+          descending = predicate.charAt(0) == '-';
+          predicate = predicate.substring(1);
+        }
+        get = $parse(predicate);
+      }
+      return reverseComparator(function(a,b){
+        return compare(get(a),get(b));
+      }, descending);
+    });
+    var arrayCopy = [];
+    for ( var i = 0; i < array.length; i++) { arrayCopy.push(array[i]); }
+    return arrayCopy.sort(reverseComparator(comparator, reverseOrder));
+
+    function comparator(o1, o2){
+      for ( var i = 0; i < sortPredicate.length; i++) {
+        var comp = sortPredicate[i](o1, o2);
+        if (comp !== 0) return comp;
+      }
+      return 0;
+    }
+    function reverseComparator(comp, descending) {
+      return toBoolean(descending)
+          ? function(a,b){return comp(b,a);}
+          : comp;
+    }
+    function compare(v1, v2){
+      var t1 = typeof v1;
+      var t2 = typeof v2;
+      if (t1 == t2) {
+        if (t1 == "string") v1 = v1.toLowerCase();
+        if (t1 == "string") v2 = v2.toLowerCase();
+        if (v1 === v2) return 0;
+        return v1 < v2 ? -1 : 1;
+      } else {
+        return t1 < t2 ? -1 : 1;
+      }
+    }
+  }
+}
+
+function ngDirective(directive) {
+  if (isFunction(directive)) {
+    directive = {
+      link: directive
+    }
+  }
+  directive.restrict = directive.restrict || 'AC';
+  return valueFn(directive);
+}
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:a
+ * @restrict E
+ *
+ * @description
+ * Modifies the default behavior of html A tag, so that the default action is prevented when href
+ * attribute is empty.
+ *
+ * The reasoning for this change is to allow easy creation of action links with `ngClick` directive
+ * without changing the location or causing page reloads, e.g.:
+ * `<a href="" ng-click="model.$save()">Save</a>`
+ */
+var htmlAnchorDirective = valueFn({
+  restrict: 'E',
+  compile: function(element, attr) {
+
+    if (msie <= 8) {
+
+      // turn <a href ng-click="..">link</a> into a stylable link in IE
+      // but only if it doesn't have name attribute, in which case it's an anchor
+      if (!attr.href && !attr.name) {
+        attr.$set('href', '');
+      }
+
+      // add a comment node to anchors to workaround IE bug that causes element content to be reset
+      // to new attribute content if attribute is updated with value containing @ and element also
+      // contains value with @
+      // see issue #1949
+      element.append(document.createComment('IE fix'));
+    }
+
+    return function(scope, element) {
+      element.bind('click', function(event){
+        // if we have no href url, then don't navigate anywhere.
+        if (!element.attr('href')) {
+          event.preventDefault();
+        }
+      });
+    }
+  }
+});
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngHref
+ * @restrict A
+ *
+ * @description
+ * Using Angular markup like {{hash}} in an href attribute makes
+ * the page open to a wrong URL, if the user clicks that link before
+ * angular has a chance to replace the {{hash}} with actual URL, the
+ * link will be broken and will most likely return a 404 error.
+ * The `ngHref` directive solves this problem.
+ *
+ * The buggy way to write it:
+ * <pre>
+ * <a href="http://www.gravatar.com/avatar/{{hash}}"/>
+ * </pre>
+ *
+ * The correct way to write it:
+ * <pre>
+ * <a ng-href="http://www.gravatar.com/avatar/{{hash}}"/>
+ * </pre>
+ *
+ * @element A
+ * @param {template} ngHref any string which can contain `{{}}` markup.
+ *
+ * @example
+ * This example uses `link` variable inside `href` attribute:
+    <doc:example>
+      <doc:source>
+        <input ng-model="value" /><br />
+        <a id="link-1" href ng-click="value = 1">link 1</a> (link, don't reload)<br />
+        <a id="link-2" href="" ng-click="value = 2">link 2</a> (link, don't reload)<br />
+        <a id="link-3" ng-href="/{{'123'}}">link 3</a> (link, reload!)<br />
+        <a id="link-4" href="" name="xx" ng-click="value = 4">anchor</a> (link, don't reload)<br />
+        <a id="link-5" name="xxx" ng-click="value = 5">anchor</a> (no link)<br />
+        <a id="link-6" ng-href="{{value}}">link</a> (link, change location)
+      </doc:source>
+      <doc:scenario>
+        it('should execute ng-click but not reload when href without value', function() {
+          element('#link-1').click();
+          expect(input('value').val()).toEqual('1');
+          expect(element('#link-1').attr('href')).toBe("");
+        });
+
+        it('should execute ng-click but not reload when href empty string', function() {
+          element('#link-2').click();
+          expect(input('value').val()).toEqual('2');
+          expect(element('#link-2').attr('href')).toBe("");
+        });
+
+        it('should execute ng-click and change url when ng-href specified', function() {
+          expect(element('#link-3').attr('href')).toBe("/123");
+
+          element('#link-3').click();
+          expect(browser().window().path()).toEqual('/123');
+        });
+
+        it('should execute ng-click but not reload when href empty string and name specified', function() {
+          element('#link-4').click();
+          expect(input('value').val()).toEqual('4');
+          expect(element('#link-4').attr('href')).toBe('');
+        });
+
+        it('should execute ng-click but not reload when no href but name specified', function() {
+          element('#link-5').click();
+          expect(input('value').val()).toEqual('5');
+          expect(element('#link-5').attr('href')).toBe(undefined);
+        });
+
+        it('should only change url when only ng-href', function() {
+          input('value').enter('6');
+          expect(element('#link-6').attr('href')).toBe('6');
+
+          element('#link-6').click();
+          expect(browser().location().url()).toEqual('/6');
+        });
+      </doc:scenario>
+    </doc:example>
+ */
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngSrc
+ * @restrict A
+ *
+ * @description
+ * Using Angular markup like `{{hash}}` in a `src` attribute doesn't
+ * work right: The browser will fetch from the URL with the literal
+ * text `{{hash}}` until Angular replaces the expression inside
+ * `{{hash}}`. The `ngSrc` directive solves this problem.
+ *
+ * The buggy way to write it:
+ * <pre>
+ * <img src="http://www.gravatar.com/avatar/{{hash}}"/>
+ * </pre>
+ *
+ * The correct way to write it:
+ * <pre>
+ * <img ng-src="http://www.gravatar.com/avatar/{{hash}}"/>
+ * </pre>
+ *
+ * @element IMG
+ * @param {template} ngSrc any string which can contain `{{}}` markup.
+ */
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngDisabled
+ * @restrict A
+ *
+ * @description
+ *
+ * The following markup will make the button enabled on Chrome/Firefox but not on IE8 and older IEs:
+ * <pre>
+ * <div ng-init="scope = { isDisabled: false }">
+ *  <button disabled="{{scope.isDisabled}}">Disabled</button>
+ * </div>
+ * </pre>
+ *
+ * The HTML specs do not require browsers to preserve the special attributes such as disabled.
+ * (The presence of them means true and absence means false)
+ * This prevents the angular compiler from correctly retrieving the binding expression.
+ * To solve this problem, we introduce the `ngDisabled` directive.
+ *
+ * @example
+    <doc:example>
+      <doc:source>
+        Click me to toggle: <input type="checkbox" ng-model="checked"><br/>
+        <button ng-model="button" ng-disabled="checked">Button</button>
+      </doc:source>
+      <doc:scenario>
+        it('should toggle button', function() {
+          expect(element('.doc-example-live :button').prop('disabled')).toBeFalsy();
+          input('checked').check();
+          expect(element('.doc-example-live :button').prop('disabled')).toBeTruthy();
+        });
+      </doc:scenario>
+    </doc:example>
+ *
+ * @element INPUT
+ * @param {expression} ngDisabled Angular expression that will be evaluated.
+ */
+
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngChecked
+ * @restrict A
+ *
+ * @description
+ * The HTML specs do not require browsers to preserve the special attributes such as checked.
+ * (The presence of them means true and absence means false)
+ * This prevents the angular compiler from correctly retrieving the binding expression.
+ * To solve this problem, we introduce the `ngChecked` directive.
+ * @example
+    <doc:example>
+      <doc:source>
+        Check me to check both: <input type="checkbox" ng-model="master"><br/>
+        <input id="checkSlave" type="checkbox" ng-checked="master">
+      </doc:source>
+      <doc:scenario>
+        it('should check both checkBoxes', function() {
+          expect(element('.doc-example-live #checkSlave').prop('checked')).toBeFalsy();
+          input('master').check();
+          expect(element('.doc-example-live #checkSlave').prop('checked')).toBeTruthy();
+        });
+      </doc:scenario>
+    </doc:example>
+ *
+ * @element INPUT
+ * @param {expression} ngChecked Angular expression that will be evaluated.
+ */
+
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngMultiple
+ * @restrict A
+ *
+ * @description
+ * The HTML specs do not require browsers to preserve the special attributes such as multiple.
+ * (The presence of them means true and absence means false)
+ * This prevents the angular compiler from correctly retrieving the binding expression.
+ * To solve this problem, we introduce the `ngMultiple` directive.
+ *
+ * @example
+     <doc:example>
+       <doc:source>
+         Check me check multiple: <input type="checkbox" ng-model="checked"><br/>
+         <select id="select" ng-multiple="checked">
+           <option>Misko</option>
+           <option>Igor</option>
+           <option>Vojta</option>
+           <option>Di</option>
+         </select>
+       </doc:source>
+       <doc:scenario>
+         it('should toggle multiple', function() {
+           expect(element('.doc-example-live #select').prop('multiple')).toBeFalsy();
+           input('checked').check();
+           expect(element('.doc-example-live #select').prop('multiple')).toBeTruthy();
+         });
+       </doc:scenario>
+     </doc:example>
+ *
+ * @element SELECT
+ * @param {expression} ngMultiple Angular expression that will be evaluated.
+ */
+
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngReadonly
+ * @restrict A
+ *
+ * @description
+ * The HTML specs do not require browsers to preserve the special attributes such as readonly.
+ * (The presence of them means true and absence means false)
+ * This prevents the angular compiler from correctly retrieving the binding expression.
+ * To solve this problem, we introduce the `ngReadonly` directive.
+ * @example
+    <doc:example>
+      <doc:source>
+        Check me to make text readonly: <input type="checkbox" ng-model="checked"><br/>
+        <input type="text" ng-readonly="checked" value="I'm Angular"/>
+      </doc:source>
+      <doc:scenario>
+        it('should toggle readonly attr', function() {
+          expect(element('.doc-example-live :text').prop('readonly')).toBeFalsy();
+          input('checked').check();
+          expect(element('.doc-example-live :text').prop('readonly')).toBeTruthy();
+        });
+      </doc:scenario>
+    </doc:example>
+ *
+ * @element INPUT
+ * @param {string} expression Angular expression that will be evaluated.
+ */
+
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngSelected
+ * @restrict A
+ *
+ * @description
+ * The HTML specs do not require browsers to preserve the special attributes such as selected.
+ * (The presence of them means true and absence means false)
+ * This prevents the angular compiler from correctly retrieving the binding expression.
+ * To solve this problem, we introduced the `ngSelected` directive.
+ * @example
+    <doc:example>
+      <doc:source>
+        Check me to select: <input type="checkbox" ng-model="selected"><br/>
+        <select>
+          <option>Hello!</option>
+          <option id="greet" ng-selected="selected">Greetings!</option>
+        </select>
+      </doc:source>
+      <doc:scenario>
+        it('should select Greetings!', function() {
+          expect(element('.doc-example-live #greet').prop('selected')).toBeFalsy();
+          input('selected').check();
+          expect(element('.doc-example-live #greet').prop('selected')).toBeTruthy();
+        });
+      </doc:scenario>
+    </doc:example>
+ *
+ * @element OPTION
+ * @param {string} expression Angular expression that will be evaluated.
+ */
+
+
+var ngAttributeAliasDirectives = {};
+
+
+// boolean attrs are evaluated
+forEach(BOOLEAN_ATTR, function(propName, attrName) {
+  var normalized = directiveNormalize('ng-' + attrName);
+  ngAttributeAliasDirectives[normalized] = function() {
+    return {
+      priority: 100,
+      compile: function() {
+        return function(scope, element, attr) {
+          scope.$watch(attr[normalized], function ngBooleanAttrWatchAction(value) {
+            attr.$set(attrName, !!value);
+          });
+        };
+      }
+    };
+  };
+});
+
+
+// ng-src, ng-href are interpolated
+forEach(['src', 'href'], function(attrName) {
+  var normalized = directiveNormalize('ng-' + attrName);
+  ngAttributeAliasDirectives[normalized] = function() {
+    return {
+      priority: 99, // it needs to run after the attributes are interpolated
+      link: function(scope, element, attr) {
+        attr.$observe(normalized, function(value) {
+          if (!value)
+             return;
+
+          attr.$set(attrName, value);
+
+          // on IE, if "ng:src" directive declaration is used and "src" attribute doesn't exist
+          // then calling element.setAttribute('src', 'foo') doesn't do anything, so we need
+          // to set the property as well to achieve the desired effect.
+          // we use attr[attrName] value since $set can sanitize the url.
+          if (msie) element.prop(attrName, attr[attrName]);
+        });
+      }
+    };
+  };
+});
+
+var nullFormCtrl = {
+  $addControl: noop,
+  $removeControl: noop,
+  $setValidity: noop,
+  $setDirty: noop
+};
+
+/**
+ * @ngdoc object
+ * @name ng.directive:form.FormController
+ *
+ * @property {boolean} $pristine True if user has not interacted with the form yet.
+ * @property {boolean} $dirty True if user has already interacted with the form.
+ * @property {boolean} $valid True if all of the containing forms and controls are valid.
+ * @property {boolean} $invalid True if at least one containing control or form is invalid.
+ *
+ * @property {Object} $error Is an object hash, containing references to all invalid controls or
+ *  forms, where:
+ *
+ *  - keys are validation tokens (error names) â€” such as `required`, `url` or `email`),
+ *  - values are arrays of controls or forms that are invalid with given error.
+ *
+ * @description
+ * `FormController` keeps track of all its controls and nested forms as well as state of them,
+ * such as being valid/invalid or dirty/pristine.
+ *
+ * Each {@link ng.directive:form form} directive creates an instance
+ * of `FormController`.
+ *
+ */
+//asks for $scope to fool the BC controller module
+FormController.$inject = ['$element', '$attrs', '$scope'];
+function FormController(element, attrs) {
+  var form = this,
+      parentForm = element.parent().controller('form') || nullFormCtrl,
+      invalidCount = 0, // used to easily determine if we are valid
+      errors = form.$error = {};
+
+  // init state
+  form.$name = attrs.name;
+  form.$dirty = false;
+  form.$pristine = true;
+  form.$valid = true;
+  form.$invalid = false;
+
+  parentForm.$addControl(form);
+
+  // Setup initial state of the control
+  element.addClass(PRISTINE_CLASS);
+  toggleValidCss(true);
+
+  // convenience method for easy toggling of classes
+  function toggleValidCss(isValid, validationErrorKey) {
+    validationErrorKey = validationErrorKey ? '-' + snake_case(validationErrorKey, '-') : '';
+    element.
+      removeClass((isValid ? INVALID_CLASS : VALID_CLASS) + validationErrorKey).
+      addClass((isValid ? VALID_CLASS : INVALID_CLASS) + validationErrorKey);
+  }
+
+  form.$addControl = function(control) {
+    if (control.$name && !form.hasOwnProperty(control.$name)) {
+      form[control.$name] = control;
+    }
+  };
+
+  form.$removeControl = function(control) {
+    if (control.$name && form[control.$name] === control) {
+      delete form[control.$name];
+    }
+    forEach(errors, function(queue, validationToken) {
+      form.$setValidity(validationToken, true, control);
+    });
+  };
+
+  form.$setValidity = function(validationToken, isValid, control) {
+    var queue = errors[validationToken];
+
+    if (isValid) {
+      if (queue) {
+        arrayRemove(queue, control);
+        if (!queue.length) {
+          invalidCount--;
+          if (!invalidCount) {
+            toggleValidCss(isValid);
+            form.$valid = true;
+            form.$invalid = false;
+          }
+          errors[validationToken] = false;
+          toggleValidCss(true, validationToken);
+          parentForm.$setValidity(validationToken, true, form);
+        }
+      }
+
+    } else {
+      if (!invalidCount) {
+        toggleValidCss(isValid);
+      }
+      if (queue) {
+        if (includes(queue, control)) return;
+      } else {
+        errors[validationToken] = queue = [];
+        invalidCount++;
+        toggleValidCss(false, validationToken);
+        parentForm.$setValidity(validationToken, false, form);
+      }
+      queue.push(control);
+
+      form.$valid = false;
+      form.$invalid = true;
+    }
+  };
+
+  form.$setDirty = function() {
+    element.removeClass(PRISTINE_CLASS).addClass(DIRTY_CLASS);
+    form.$dirty = true;
+    form.$pristine = false;
+    parentForm.$setDirty();
+  };
+
+}
+
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngForm
+ * @restrict EAC
+ *
+ * @description
+ * Nestable alias of {@link ng.directive:form `form`} directive. HTML
+ * does not allow nesting of form elements. It is useful to nest forms, for example if the validity of a
+ * sub-group of controls needs to be determined.
+ *
+ * @param {string=} name|ngForm Name of the form. If specified, the form controller will be published into
+ *                       related scope, under this name.
+ *
+ */
+
+ /**
+ * @ngdoc directive
+ * @name ng.directive:form
+ * @restrict E
+ *
+ * @description
+ * Directive that instantiates
+ * {@link ng.directive:form.FormController FormController}.
+ *
+ * If `name` attribute is specified, the form controller is published onto the current scope under
+ * this name.
+ *
+ * # Alias: {@link ng.directive:ngForm `ngForm`}
+ *
+ * In angular forms can be nested. This means that the outer form is valid when all of the child
+ * forms are valid as well. However browsers do not allow nesting of `<form>` elements, for this
+ * reason angular provides {@link ng.directive:ngForm `ngForm`} alias
+ * which behaves identical to `<form>` but allows form nesting.
+ *
+ *
+ * # CSS classes
+ *  - `ng-valid` Is set if the form is valid.
+ *  - `ng-invalid` Is set if the form is invalid.
+ *  - `ng-pristine` Is set if the form is pristine.
+ *  - `ng-dirty` Is set if the form is dirty.
+ *
+ *
+ * # Submitting a form and preventing default action
+ *
+ * Since the role of forms in client-side Angular applications is different than in classical
+ * roundtrip apps, it is desirable for the browser not to translate the form submission into a full
+ * page reload that sends the data to the server. Instead some javascript logic should be triggered
+ * to handle the form submission in application specific way.
+ *
+ * For this reason, Angular prevents the default action (form submission to the server) unless the
+ * `<form>` element has an `action` attribute specified.
+ *
+ * You can use one of the following two ways to specify what javascript method should be called when
+ * a form is submitted:
+ *
+ * - {@link ng.directive:ngSubmit ngSubmit} directive on the form element
+ * - {@link ng.directive:ngClick ngClick} directive on the first
+  *  button or input field of type submit (input[type=submit])
+ *
+ * To prevent double execution of the handler, use only one of ngSubmit or ngClick directives. This
+ * is because of the following form submission rules coming from the html spec:
+ *
+ * - If a form has only one input field then hitting enter in this field triggers form submit
+ * (`ngSubmit`)
+ * - if a form has has 2+ input fields and no buttons or input[type=submit] then hitting enter
+ * doesn't trigger submit
+ * - if a form has one or more input fields and one or more buttons or input[type=submit] then
+ * hitting enter in any of the input fields will trigger the click handler on the *first* button or
+ * input[type=submit] (`ngClick`) *and* a submit handler on the enclosing form (`ngSubmit`)
+ *
+ * @param {string=} name Name of the form. If specified, the form controller will be published into
+ *                       related scope, under this name.
+ *
+ * @example
+    <doc:example>
+      <doc:source>
+       <script>
+         function Ctrl($scope) {
+           $scope.userType = 'guest';
+         }
+       </script>
+       <form name="myForm" ng-controller="Ctrl">
+         userType: <input name="input" ng-model="userType" required>
+         <span class="error" ng-show="myForm.input.$error.required">Required!</span><br>
+         <tt>userType = {{userType}}</tt><br>
+         <tt>myForm.input.$valid = {{myForm.input.$valid}}</tt><br>
+         <tt>myForm.input.$error = {{myForm.input.$error}}</tt><br>
+         <tt>myForm.$valid = {{myForm.$valid}}</tt><br>
+         <tt>myForm.$error.required = {{!!myForm.$error.required}}</tt><br>
+        </form>
+      </doc:source>
+      <doc:scenario>
+        it('should initialize to model', function() {
+         expect(binding('userType')).toEqual('guest');
+         expect(binding('myForm.input.$valid')).toEqual('true');
+        });
+
+        it('should be invalid if empty', function() {
+         input('userType').enter('');
+         expect(binding('userType')).toEqual('');
+         expect(binding('myForm.input.$valid')).toEqual('false');
+        });
+      </doc:scenario>
+    </doc:example>
+ */
+var formDirectiveFactory = function(isNgForm) {
+  return ['$timeout', function($timeout) {
+    var formDirective = {
+      name: 'form',
+      restrict: 'E',
+      controller: FormController,
+      compile: function() {
+        return {
+          pre: function(scope, formElement, attr, controller) {
+            if (!attr.action) {
+              // we can't use jq events because if a form is destroyed during submission the default
+              // action is not prevented. see #1238
+              //
+              // IE 9 is not affected because it doesn't fire a submit event and try to do a full
+              // page reload if the form was destroyed by submission of the form via a click handler
+              // on a button in the form. Looks like an IE9 specific bug.
+              var preventDefaultListener = function(event) {
+                event.preventDefault
+                  ? event.preventDefault()
+                  : event.returnValue = false; // IE
+              };
+
+              addEventListenerFn(formElement[0], 'submit', preventDefaultListener);
+
+              // unregister the preventDefault listener so that we don't not leak memory but in a
+              // way that will achieve the prevention of the default action.
+              formElement.bind('$destroy', function() {
+                $timeout(function() {
+                  removeEventListenerFn(formElement[0], 'submit', preventDefaultListener);
+                }, 0, false);
+              });
+            }
+
+            var parentFormCtrl = formElement.parent().controller('form'),
+                alias = attr.name || attr.ngForm;
+
+            if (alias) {
+              scope[alias] = controller;
+            }
+            if (parentFormCtrl) {
+              formElement.bind('$destroy', function() {
+                parentFormCtrl.$removeControl(controller);
+                if (alias) {
+                  scope[alias] = undefined;
+                }
+                extend(controller, nullFormCtrl); //stop propagating child destruction handlers upwards
+              });
+            }
+          }
+        };
+      }
+    };
+
+    return isNgForm ? extend(copy(formDirective), {restrict: 'EAC'}) : formDirective;
+  }];
+};
+
+var formDirective = formDirectiveFactory();
+var ngFormDirective = formDirectiveFactory(true);
+
+var URL_REGEXP = /^(ftp|http|https):\/\/(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?$/;
+var EMAIL_REGEXP = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4}$/;
+var NUMBER_REGEXP = /^\s*(\-|\+)?(\d+|(\d*(\.\d*)))\s*$/;
+
+var inputType = {
+
+  /**
+   * @ngdoc inputType
+   * @name ng.directive:input.text
+   *
+   * @description
+   * Standard HTML text input with angular data binding.
+   *
+   * @param {string} ngModel Assignable angular expression to data-bind to.
+   * @param {string=} name Property name of the form under which the control is published.
+   * @param {string=} required Adds `required` validation error key if the value is not entered.
+   * @param {string=} ngRequired Adds `required` attribute and `required` validation constraint to
+   *    the element when the ngRequired expression evaluates to true. Use `ngRequired` instead of
+   *    `required` when you want to data-bind to the `required` attribute.
+   * @param {number=} ngMinlength Sets `minlength` validation error key if the value is shorter than
+   *    minlength.
+   * @param {number=} ngMaxlength Sets `maxlength` validation error key if the value is longer than
+   *    maxlength.
+   * @param {string=} ngPattern Sets `pattern` validation error key if the value does not match the
+   *    RegExp pattern expression. Expected value is `/regexp/` for inline patterns or `regexp` for
+   *    patterns defined as scope expressions.
+   * @param {string=} ngChange Angular expression to be executed when input changes due to user
+   *    interaction with the input element.
+   *
+   * @example
+      <doc:example>
+        <doc:source>
+         <script>
+           function Ctrl($scope) {
+             $scope.text = 'guest';
+             $scope.word = /^\w*$/;
+           }
+         </script>
+         <form name="myForm" ng-controller="Ctrl">
+           Single word: <input type="text" name="input" ng-model="text"
+                               ng-pattern="word" required>
+           <span class="error" ng-show="myForm.input.$error.required">
+             Required!</span>
+           <span class="error" ng-show="myForm.input.$error.pattern">
+             Single word only!</span>
+
+           <tt>text = {{text}}</tt><br/>
+           <tt>myForm.input.$valid = {{myForm.input.$valid}}</tt><br/>
+           <tt>myForm.input.$error = {{myForm.input.$error}}</tt><br/>
+           <tt>myForm.$valid = {{myForm.$valid}}</tt><br/>
+           <tt>myForm.$error.required = {{!!myForm.$error.required}}</tt><br/>
+          </form>
+        </doc:source>
+        <doc:scenario>
+          it('should initialize to model', function() {
+            expect(binding('text')).toEqual('guest');
+            expect(binding('myForm.input.$valid')).toEqual('true');
+          });
+
+          it('should be invalid if empty', function() {
+            input('text').enter('');
+            expect(binding('text')).toEqual('');
+            expect(binding('myForm.input.$valid')).toEqual('false');
+          });
+
+          it('should be invalid if multi word', function() {
+            input('text').enter('hello world');
+            expect(binding('myForm.input.$valid')).toEqual('false');
+          });
+        </doc:scenario>
+      </doc:example>
+   */
+  'text': textInputType,
+
+
+  /**
+   * @ngdoc inputType
+   * @name ng.directive:input.number
+   *
+   * @description
+   * Text input with number validation and transformation. Sets the `number` validation
+   * error if not a valid number.
+   *
+   * @param {string} ngModel Assignable angular expression to data-bind to.
+   * @param {string=} name Property name of the form under which the control is published.
+   * @param {string=} min Sets the `min` validation error key if the value entered is less than `min`.
+   * @param {string=} max Sets the `max` validation error key if the value entered is greater than `max`.
+   * @param {string=} required Sets `required` validation error key if the value is not entered.
+   * @param {string=} ngRequired Adds `required` attribute and `required` validation constraint to
+   *    the element when the ngRequired expression evaluates to true. Use `ngRequired` instead of
+   *    `required` when you want to data-bind to the `required` attribute.
+   * @param {number=} ngMinlength Sets `minlength` validation error key if the value is shorter than
+   *    minlength.
+   * @param {number=} ngMaxlength Sets `maxlength` validation error key if the value is longer than
+   *    maxlength.
+   * @param {string=} ngPattern Sets `pattern` validation error key if the value does not match the
+   *    RegExp pattern expression. Expected value is `/regexp/` for inline patterns or `regexp` for
+   *    patterns defined as scope expressions.
+   * @param {string=} ngChange Angular expression to be executed when input changes due to user
+   *    interaction with the input element.
+   *
+   * @example
+      <doc:example>
+        <doc:source>
+         <script>
+           function Ctrl($scope) {
+             $scope.value = 12;
+           }
+         </script>
+         <form name="myForm" ng-controller="Ctrl">
+           Number: <input type="number" name="input" ng-model="value"
+                          min="0" max="99" required>
+           <span class="error" ng-show="myForm.list.$error.required">
+             Required!</span>
+           <span class="error" ng-show="myForm.list.$error.number">
+             Not valid number!</span>
+           <tt>value = {{value}}</tt><br/>
+           <tt>myForm.input.$valid = {{myForm.input.$valid}}</tt><br/>
+           <tt>myForm.input.$error = {{myForm.input.$error}}</tt><br/>
+           <tt>myForm.$valid = {{myForm.$valid}}</tt><br/>
+           <tt>myForm.$error.required = {{!!myForm.$error.required}}</tt><br/>
+          </form>
+        </doc:source>
+        <doc:scenario>
+          it('should initialize to model', function() {
+           expect(binding('value')).toEqual('12');
+           expect(binding('myForm.input.$valid')).toEqual('true');
+          });
+
+          it('should be invalid if empty', function() {
+           input('value').enter('');
+           expect(binding('value')).toEqual('');
+           expect(binding('myForm.input.$valid')).toEqual('false');
+          });
+
+          it('should be invalid if over max', function() {
+           input('value').enter('123');
+           expect(binding('value')).toEqual('');
+           expect(binding('myForm.input.$valid')).toEqual('false');
+          });
+        </doc:scenario>
+      </doc:example>
+   */
+  'number': numberInputType,
+
+
+  /**
+   * @ngdoc inputType
+   * @name ng.directive:input.url
+   *
+   * @description
+   * Text input with URL validation. Sets the `url` validation error key if the content is not a
+   * valid URL.
+   *
+   * @param {string} ngModel Assignable angular expression to data-bind to.
+   * @param {string=} name Property name of the form under which the control is published.
+   * @param {string=} required Sets `required` validation error key if the value is not entered.
+   * @param {string=} ngRequired Adds `required` attribute and `required` validation constraint to
+   *    the element when the ngRequired expression evaluates to true. Use `ngRequired` instead of
+   *    `required` when you want to data-bind to the `required` attribute.
+   * @param {number=} ngMinlength Sets `minlength` validation error key if the value is shorter than
+   *    minlength.
+   * @param {number=} ngMaxlength Sets `maxlength` validation error key if the value is longer than
+   *    maxlength.
+   * @param {string=} ngPattern Sets `pattern` validation error key if the value does not match the
+   *    RegExp pattern expression. Expected value is `/regexp/` for inline patterns or `regexp` for
+   *    patterns defined as scope expressions.
+   * @param {string=} ngChange Angular expression to be executed when input changes due to user
+   *    interaction with the input element.
+   *
+   * @example
+      <doc:example>
+        <doc:source>
+         <script>
+           function Ctrl($scope) {
+             $scope.text = 'http://google.com';
+           }
+         </script>
+         <form name="myForm" ng-controller="Ctrl">
+           URL: <input type="url" name="input" ng-model="text" required>
+           <span class="error" ng-show="myForm.input.$error.required">
+             Required!</span>
+           <span class="error" ng-show="myForm.input.$error.url">
+             Not valid url!</span>
+           <tt>text = {{text}}</tt><br/>
+           <tt>myForm.input.$valid = {{myForm.input.$valid}}</tt><br/>
+           <tt>myForm.input.$error = {{myForm.input.$error}}</tt><br/>
+           <tt>myForm.$valid = {{myForm.$valid}}</tt><br/>
+           <tt>myForm.$error.required = {{!!myForm.$error.required}}</tt><br/>
+           <tt>myForm.$error.url = {{!!myForm.$error.url}}</tt><br/>
+          </form>
+        </doc:source>
+        <doc:scenario>
+          it('should initialize to model', function() {
+            expect(binding('text')).toEqual('http://google.com');
+            expect(binding('myForm.input.$valid')).toEqual('true');
+          });
+
+          it('should be invalid if empty', function() {
+            input('text').enter('');
+            expect(binding('text')).toEqual('');
+            expect(binding('myForm.input.$valid')).toEqual('false');
+          });
+
+          it('should be invalid if not url', function() {
+            input('text').enter('xxx');
+            expect(binding('myForm.input.$valid')).toEqual('false');
+          });
+        </doc:scenario>
+      </doc:example>
+   */
+  'url': urlInputType,
+
+
+  /**
+   * @ngdoc inputType
+   * @name ng.directive:input.email
+   *
+   * @description
+   * Text input with email validation. Sets the `email` validation error key if not a valid email
+   * address.
+   *
+   * @param {string} ngModel Assignable angular expression to data-bind to.
+   * @param {string=} name Property name of the form under which the control is published.
+   * @param {string=} required Sets `required` validation error key if the value is not entered.
+   * @param {string=} ngRequired Adds `required` attribute and `required` validation constraint to
+   *    the element when the ngRequired expression evaluates to true. Use `ngRequired` instead of
+   *    `required` when you want to data-bind to the `required` attribute.
+   * @param {number=} ngMinlength Sets `minlength` validation error key if the value is shorter than
+   *    minlength.
+   * @param {number=} ngMaxlength Sets `maxlength` validation error key if the value is longer than
+   *    maxlength.
+   * @param {string=} ngPattern Sets `pattern` validation error key if the value does not match the
+   *    RegExp pattern expression. Expected value is `/regexp/` for inline patterns or `regexp` for
+   *    patterns defined as scope expressions.
+   *
+   * @example
+      <doc:example>
+        <doc:source>
+         <script>
+           function Ctrl($scope) {
+             $scope.text = 'me@example.com';
+           }
+         </script>
+           <form name="myForm" ng-controller="Ctrl">
+             Email: <input type="email" name="input" ng-model="text" required>
+             <span class="error" ng-show="myForm.input.$error.required">
+               Required!</span>
+             <span class="error" ng-show="myForm.input.$error.email">
+               Not valid email!</span>
+             <tt>text = {{text}}</tt><br/>
+             <tt>myForm.input.$valid = {{myForm.input.$valid}}</tt><br/>
+             <tt>myForm.input.$error = {{myForm.input.$error}}</tt><br/>
+             <tt>myForm.$valid = {{myForm.$valid}}</tt><br/>
+             <tt>myForm.$error.required = {{!!myForm.$error.required}}</tt><br/>
+             <tt>myForm.$error.email = {{!!myForm.$error.email}}</tt><br/>
+           </form>
+        </doc:source>
+        <doc:scenario>
+          it('should initialize to model', function() {
+            expect(binding('text')).toEqual('me@example.com');
+            expect(binding('myForm.input.$valid')).toEqual('true');
+          });
+
+          it('should be invalid if empty', function() {
+            input('text').enter('');
+            expect(binding('text')).toEqual('');
+            expect(binding('myForm.input.$valid')).toEqual('false');
+          });
+
+          it('should be invalid if not email', function() {
+            input('text').enter('xxx');
+            expect(binding('myForm.input.$valid')).toEqual('false');
+          });
+        </doc:scenario>
+      </doc:example>
+   */
+  'email': emailInputType,
+
+
+  /**
+   * @ngdoc inputType
+   * @name ng.directive:input.radio
+   *
+   * @description
+   * HTML radio button.
+   *
+   * @param {string} ngModel Assignable angular expression to data-bind to.
+   * @param {string} value The value to which the expression should be set when selected.
+   * @param {string=} name Property name of the form under which the control is published.
+   * @param {string=} ngChange Angular expression to be executed when input changes due to user
+   *    interaction with the input element.
+   *
+   * @example
+      <doc:example>
+        <doc:source>
+         <script>
+           function Ctrl($scope) {
+             $scope.color = 'blue';
+           }
+         </script>
+         <form name="myForm" ng-controller="Ctrl">
+           <input type="radio" ng-model="color" value="red">  Red <br/>
+           <input type="radio" ng-model="color" value="green"> Green <br/>
+           <input type="radio" ng-model="color" value="blue"> Blue <br/>
+           <tt>color = {{color}}</tt><br/>
+          </form>
+        </doc:source>
+        <doc:scenario>
+          it('should change state', function() {
+            expect(binding('color')).toEqual('blue');
+
+            input('color').select('red');
+            expect(binding('color')).toEqual('red');
+          });
+        </doc:scenario>
+      </doc:example>
+   */
+  'radio': radioInputType,
+
+
+  /**
+   * @ngdoc inputType
+   * @name ng.directive:input.checkbox
+   *
+   * @description
+   * HTML checkbox.
+   *
+   * @param {string} ngModel Assignable angular expression to data-bind to.
+   * @param {string=} name Property name of the form under which the control is published.
+   * @param {string=} ngTrueValue The value to which the expression should be set when selected.
+   * @param {string=} ngFalseValue The value to which the expression should be set when not selected.
+   * @param {string=} ngChange Angular expression to be executed when input changes due to user
+   *    interaction with the input element.
+   *
+   * @example
+      <doc:example>
+        <doc:source>
+         <script>
+           function Ctrl($scope) {
+             $scope.value1 = true;
+             $scope.value2 = 'YES'
+           }
+         </script>
+         <form name="myForm" ng-controller="Ctrl">
+           Value1: <input type="checkbox" ng-model="value1"> <br/>
+           Value2: <input type="checkbox" ng-model="value2"
+                          ng-true-value="YES" ng-false-value="NO"> <br/>
+           <tt>value1 = {{value1}}</tt><br/>
+           <tt>value2 = {{value2}}</tt><br/>
+          </form>
+        </doc:source>
+        <doc:scenario>
+          it('should change state', function() {
+            expect(binding('value1')).toEqual('true');
+            expect(binding('value2')).toEqual('YES');
+
+            input('value1').check();
+            input('value2').check();
+            expect(binding('value1')).toEqual('false');
+            expect(binding('value2')).toEqual('NO');
+          });
+        </doc:scenario>
+      </doc:example>
+   */
+  'checkbox': checkboxInputType,
+
+  'hidden': noop,
+  'button': noop,
+  'submit': noop,
+  'reset': noop
+};
+
+
+function isEmpty(value) {
+  return isUndefined(value) || value === '' || value === null || value !== value;
+}
+
+
+function textInputType(scope, element, attr, ctrl, $sniffer, $browser) {
+
+  var listener = function() {
+    var value = trim(element.val());
+
+    if (ctrl.$viewValue !== value) {
+      scope.$apply(function() {
+        ctrl.$setViewValue(value);
+      });
+    }
+  };
+
+  // if the browser does support "input" event, we are fine - except on IE9 which doesn't fire the
+  // input event on backspace, delete or cut
+  if ($sniffer.hasEvent('input')) {
+    element.bind('input', listener);
+  } else {
+    var timeout;
+
+    var deferListener = function() {
+      if (!timeout) {
+        timeout = $browser.defer(function() {
+          listener();
+          timeout = null;
+        });
+      }
+    };
+
+    element.bind('keydown', function(event) {
+      var key = event.keyCode;
+
+      // ignore
+      //    command            modifiers                   arrows
+      if (key === 91 || (15 < key && key < 19) || (37 <= key && key <= 40)) return;
+
+      deferListener();
+    });
+
+    // if user paste into input using mouse, we need "change" event to catch it
+    element.bind('change', listener);
+
+    // if user modifies input value using context menu in IE, we need "paste" and "cut" events to catch it
+    if ($sniffer.hasEvent('paste')) {
+      element.bind('paste cut', deferListener);
+    }
+  }
+
+
+  ctrl.$render = function() {
+    element.val(isEmpty(ctrl.$viewValue) ? '' : ctrl.$viewValue);
+  };
+
+  // pattern validator
+  var pattern = attr.ngPattern,
+      patternValidator;
+
+  var validate = function(regexp, value) {
+    if (isEmpty(value) || regexp.test(value)) {
+      ctrl.$setValidity('pattern', true);
+      return value;
+    } else {
+      ctrl.$setValidity('pattern', false);
+      return undefined;
+    }
+  };
+
+  if (pattern) {
+    if (pattern.match(/^\/(.*)\/$/)) {
+      pattern = new RegExp(pattern.substr(1, pattern.length - 2));
+      patternValidator = function(value) {
+        return validate(pattern, value)
+      };
+    } else {
+      patternValidator = function(value) {
+        var patternObj = scope.$eval(pattern);
+
+        if (!patternObj || !patternObj.test) {
+          throw new Error('Expected ' + pattern + ' to be a RegExp but was ' + patternObj);
+        }
+        return validate(patternObj, value);
+      };
+    }
+
+    ctrl.$formatters.push(patternValidator);
+    ctrl.$parsers.push(patternValidator);
+  }
+
+  // min length validator
+  if (attr.ngMinlength) {
+    var minlength = int(attr.ngMinlength);
+    var minLengthValidator = function(value) {
+      if (!isEmpty(value) && value.length < minlength) {
+        ctrl.$setValidity('minlength', false);
+        return undefined;
+      } else {
+        ctrl.$setValidity('minlength', true);
+        return value;
+      }
+    };
+
+    ctrl.$parsers.push(minLengthValidator);
+    ctrl.$formatters.push(minLengthValidator);
+  }
+
+  // max length validator
+  if (attr.ngMaxlength) {
+    var maxlength = int(attr.ngMaxlength);
+    var maxLengthValidator = function(value) {
+      if (!isEmpty(value) && value.length > maxlength) {
+        ctrl.$setValidity('maxlength', false);
+        return undefined;
+      } else {
+        ctrl.$setValidity('maxlength', true);
+        return value;
+      }
+    };
+
+    ctrl.$parsers.push(maxLengthValidator);
+    ctrl.$formatters.push(maxLengthValidator);
+  }
+}
+
+function numberInputType(scope, element, attr, ctrl, $sniffer, $browser) {
+  textInputType(scope, element, attr, ctrl, $sniffer, $browser);
+
+  ctrl.$parsers.push(function(value) {
+    var empty = isEmpty(value);
+    if (empty || NUMBER_REGEXP.test(value)) {
+      ctrl.$setValidity('number', true);
+      return value === '' ? null : (empty ? value : parseFloat(value));
+    } else {
+      ctrl.$setValidity('number', false);
+      return undefined;
+    }
+  });
+
+  ctrl.$formatters.push(function(value) {
+    return isEmpty(value) ? '' : '' + value;
+  });
+
+  if (attr.min) {
+    var min = parseFloat(attr.min);
+    var minValidator = function(value) {
+      if (!isEmpty(value) && value < min) {
+        ctrl.$setValidity('min', false);
+        return undefined;
+      } else {
+        ctrl.$setValidity('min', true);
+        return value;
+      }
+    };
+
+    ctrl.$parsers.push(minValidator);
+    ctrl.$formatters.push(minValidator);
+  }
+
+  if (attr.max) {
+    var max = parseFloat(attr.max);
+    var maxValidator = function(value) {
+      if (!isEmpty(value) && value > max) {
+        ctrl.$setValidity('max', false);
+        return undefined;
+      } else {
+        ctrl.$setValidity('max', true);
+        return value;
+      }
+    };
+
+    ctrl.$parsers.push(maxValidator);
+    ctrl.$formatters.push(maxValidator);
+  }
+
+  ctrl.$formatters.push(function(value) {
+
+    if (isEmpty(value) || isNumber(value)) {
+      ctrl.$setValidity('number', true);
+      return value;
+    } else {
+      ctrl.$setValidity('number', false);
+      return undefined;
+    }
+  });
+}
+
+function urlInputType(scope, element, attr, ctrl, $sniffer, $browser) {
+  textInputType(scope, element, attr, ctrl, $sniffer, $browser);
+
+  var urlValidator = function(value) {
+    if (isEmpty(value) || URL_REGEXP.test(value)) {
+      ctrl.$setValidity('url', true);
+      return value;
+    } else {
+      ctrl.$setValidity('url', false);
+      return undefined;
+    }
+  };
+
+  ctrl.$formatters.push(urlValidator);
+  ctrl.$parsers.push(urlValidator);
+}
+
+function emailInputType(scope, element, attr, ctrl, $sniffer, $browser) {
+  textInputType(scope, element, attr, ctrl, $sniffer, $browser);
+
+  var emailValidator = function(value) {
+    if (isEmpty(value) || EMAIL_REGEXP.test(value)) {
+      ctrl.$setValidity('email', true);
+      return value;
+    } else {
+      ctrl.$setValidity('email', false);
+      return undefined;
+    }
+  };
+
+  ctrl.$formatters.push(emailValidator);
+  ctrl.$parsers.push(emailValidator);
+}
+
+function radioInputType(scope, element, attr, ctrl) {
+  // make the name unique, if not defined
+  if (isUndefined(attr.name)) {
+    element.attr('name', nextUid());
+  }
+
+  element.bind('click', function() {
+    if (element[0].checked) {
+      scope.$apply(function() {
+        ctrl.$setViewValue(attr.value);
+      });
+    }
+  });
+
+  ctrl.$render = function() {
+    var value = attr.value;
+    element[0].checked = (value == ctrl.$viewValue);
+  };
+
+  attr.$observe('value', ctrl.$render);
+}
+
+function checkboxInputType(scope, element, attr, ctrl) {
+  var trueValue = attr.ngTrueValue,
+      falseValue = attr.ngFalseValue;
+
+  if (!isString(trueValue)) trueValue = true;
+  if (!isString(falseValue)) falseValue = false;
+
+  element.bind('click', function() {
+    scope.$apply(function() {
+      ctrl.$setViewValue(element[0].checked);
+    });
+  });
+
+  ctrl.$render = function() {
+    element[0].checked = ctrl.$viewValue;
+  };
+
+  ctrl.$formatters.push(function(value) {
+    return value === trueValue;
+  });
+
+  ctrl.$parsers.push(function(value) {
+    return value ? trueValue : falseValue;
+  });
+}
+
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:textarea
+ * @restrict E
+ *
+ * @description
+ * HTML textarea element control with angular data-binding. The data-binding and validation
+ * properties of this element are exactly the same as those of the
+ * {@link ng.directive:input input element}.
+ *
+ * @param {string} ngModel Assignable angular expression to data-bind to.
+ * @param {string=} name Property name of the form under which the control is published.
+ * @param {string=} required Sets `required` validation error key if the value is not entered.
+ * @param {string=} ngRequired Adds `required` attribute and `required` validation constraint to
+ *    the element when the ngRequired expression evaluates to true. Use `ngRequired` instead of
+ *    `required` when you want to data-bind to the `required` attribute.
+ * @param {number=} ngMinlength Sets `minlength` validation error key if the value is shorter than
+ *    minlength.
+ * @param {number=} ngMaxlength Sets `maxlength` validation error key if the value is longer than
+ *    maxlength.
+ * @param {string=} ngPattern Sets `pattern` validation error key if the value does not match the
+ *    RegExp pattern expression. Expected value is `/regexp/` for inline patterns or `regexp` for
+ *    patterns defined as scope expressions.
+ * @param {string=} ngChange Angular expression to be executed when input changes due to user
+ *    interaction with the input element.
+ */
+
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:input
+ * @restrict E
+ *
+ * @description
+ * HTML input element control with angular data-binding. Input control follows HTML5 input types
+ * and polyfills the HTML5 validation behavior for older browsers.
+ *
+ * @param {string} ngModel Assignable angular expression to data-bind to.
+ * @param {string=} name Property name of the form under which the control is published.
+ * @param {string=} required Sets `required` validation error key if the value is not entered.
+ * @param {boolean=} ngRequired Sets `required` attribute if set to true
+ * @param {number=} ngMinlength Sets `minlength` validation error key if the value is shorter than
+ *    minlength.
+ * @param {number=} ngMaxlength Sets `maxlength` validation error key if the value is longer than
+ *    maxlength.
+ * @param {string=} ngPattern Sets `pattern` validation error key if the value does not match the
+ *    RegExp pattern expression. Expected value is `/regexp/` for inline patterns or `regexp` for
+ *    patterns defined as scope expressions.
+ * @param {string=} ngChange Angular expression to be executed when input changes due to user
+ *    interaction with the input element.
+ *
+ * @example
+    <doc:example>
+      <doc:source>
+       <script>
+         function Ctrl($scope) {
+           $scope.user = {name: 'guest', last: 'visitor'};
+         }
+       </script>
+       <div ng-controller="Ctrl">
+         <form name="myForm">
+           User name: <input type="text" name="userName" ng-model="user.name" required>
+           <span class="error" ng-show="myForm.userName.$error.required">
+             Required!</span><br>
+           Last name: <input type="text" name="lastName" ng-model="user.last"
+             ng-minlength="3" ng-maxlength="10">
+           <span class="error" ng-show="myForm.lastName.$error.minlength">
+             Too short!</span>
+           <span class="error" ng-show="myForm.lastName.$error.maxlength">
+             Too long!</span><br>
+         </form>
+         <hr>
+         <tt>user = {{user}}</tt><br/>
+         <tt>myForm.userName.$valid = {{myForm.userName.$valid}}</tt><br>
+         <tt>myForm.userName.$error = {{myForm.userName.$error}}</tt><br>
+         <tt>myForm.lastName.$valid = {{myForm.lastName.$valid}}</tt><br>
+         <tt>myForm.lastName.$error = {{myForm.lastName.$error}}</tt><br>
+         <tt>myForm.$valid = {{myForm.$valid}}</tt><br>
+         <tt>myForm.$error.required = {{!!myForm.$error.required}}</tt><br>
+         <tt>myForm.$error.minlength = {{!!myForm.$error.minlength}}</tt><br>
+         <tt>myForm.$error.maxlength = {{!!myForm.$error.maxlength}}</tt><br>
+       </div>
+      </doc:source>
+      <doc:scenario>
+        it('should initialize to model', function() {
+          expect(binding('user')).toEqual('{"name":"guest","last":"visitor"}');
+          expect(binding('myForm.userName.$valid')).toEqual('true');
+          expect(binding('myForm.$valid')).toEqual('true');
+        });
+
+        it('should be invalid if empty when required', function() {
+          input('user.name').enter('');
+          expect(binding('user')).toEqual('{"last":"visitor"}');
+          expect(binding('myForm.userName.$valid')).toEqual('false');
+          expect(binding('myForm.$valid')).toEqual('false');
+        });
+
+        it('should be valid if empty when min length is set', function() {
+          input('user.last').enter('');
+          expect(binding('user')).toEqual('{"name":"guest","last":""}');
+          expect(binding('myForm.lastName.$valid')).toEqual('true');
+          expect(binding('myForm.$valid')).toEqual('true');
+        });
+
+        it('should be invalid if less than required min length', function() {
+          input('user.last').enter('xx');
+          expect(binding('user')).toEqual('{"name":"guest"}');
+          expect(binding('myForm.lastName.$valid')).toEqual('false');
+          expect(binding('myForm.lastName.$error')).toMatch(/minlength/);
+          expect(binding('myForm.$valid')).toEqual('false');
+        });
+
+        it('should be invalid if longer than max length', function() {
+          input('user.last').enter('some ridiculously long name');
+          expect(binding('user'))
+            .toEqual('{"name":"guest"}');
+          expect(binding('myForm.lastName.$valid')).toEqual('false');
+          expect(binding('myForm.lastName.$error')).toMatch(/maxlength/);
+          expect(binding('myForm.$valid')).toEqual('false');
+        });
+      </doc:scenario>
+    </doc:example>
+ */
+var inputDirective = ['$browser', '$sniffer', function($browser, $sniffer) {
+  return {
+    restrict: 'E',
+    require: '?ngModel',
+    link: function(scope, element, attr, ctrl) {
+      if (ctrl) {
+        (inputType[lowercase(attr.type)] || inputType.text)(scope, element, attr, ctrl, $sniffer,
+                                                            $browser);
+      }
+    }
+  };
+}];
+
+var VALID_CLASS = 'ng-valid',
+    INVALID_CLASS = 'ng-invalid',
+    PRISTINE_CLASS = 'ng-pristine',
+    DIRTY_CLASS = 'ng-dirty';
+
+/**
+ * @ngdoc object
+ * @name ng.directive:ngModel.NgModelController
+ *
+ * @property {string} $viewValue Actual string value in the view.
+ * @property {*} $modelValue The value in the model, that the control is bound to.
+ * @property {Array.<Function>} $parsers Whenever the control reads value from the DOM, it executes
+ *     all of these functions to sanitize / convert the value as well as validate.
+ *
+ * @property {Array.<Function>} $formatters Whenever the model value changes, it executes all of
+ *     these functions to convert the value as well as validate.
+ *
+ * @property {Object} $error An bject hash with all errors as keys.
+ *
+ * @property {boolean} $pristine True if user has not interacted with the control yet.
+ * @property {boolean} $dirty True if user has already interacted with the control.
+ * @property {boolean} $valid True if there is no error.
+ * @property {boolean} $invalid True if at least one error on the control.
+ *
+ * @description
+ *
+ * `NgModelController` provides API for the `ng-model` directive. The controller contains
+ * services for data-binding, validation, CSS update, value formatting and parsing. It
+ * specifically does not contain any logic which deals with DOM rendering or listening to
+ * DOM events. The `NgModelController` is meant to be extended by other directives where, the
+ * directive provides DOM manipulation and the `NgModelController` provides the data-binding.
+ *
+ * This example shows how to use `NgModelController` with a custom control to achieve
+ * data-binding. Notice how different directives (`contenteditable`, `ng-model`, and `required`)
+ * collaborate together to achieve the desired result.
+ *
+ * <example module="customControl">
+    <file name="style.css">
+      [contenteditable] {
+        border: 1px solid black;
+        background-color: white;
+        min-height: 20px;
+      }
+
+      .ng-invalid {
+        border: 1px solid red;
+      }
+
+    </file>
+    <file name="script.js">
+      angular.module('customControl', []).
+        directive('contenteditable', function() {
+          return {
+            restrict: 'A', // only activate on element attribute
+            require: '?ngModel', // get a hold of NgModelController
+            link: function(scope, element, attrs, ngModel) {
+              if(!ngModel) return; // do nothing if no ng-model
+
+              // Specify how UI should be updated
+              ngModel.$render = function() {
+                element.html(ngModel.$viewValue || '');
+              };
+
+              // Listen for change events to enable binding
+              element.bind('blur keyup change', function() {
+                scope.$apply(read);
+              });
+              read(); // initialize
+
+              // Write data to the model
+              function read() {
+                ngModel.$setViewValue(element.html());
+              }
+            }
+          };
+        });
+    </file>
+    <file name="index.html">
+      <form name="myForm">
+       <div contenteditable
+            name="myWidget" ng-model="userContent"
+            required>Change me!</div>
+        <span ng-show="myForm.myWidget.$error.required">Required!</span>
+       <hr>
+       <textarea ng-model="userContent"></textarea>
+      </form>
+    </file>
+    <file name="scenario.js">
+      it('should data-bind and become invalid', function() {
+        var contentEditable = element('[contenteditable]');
+
+        expect(contentEditable.text()).toEqual('Change me!');
+        input('userContent').enter('');
+        expect(contentEditable.text()).toEqual('');
+        expect(contentEditable.prop('className')).toMatch(/ng-invalid-required/);
+      });
+    </file>
+ * </example>
+ *
+ */
+var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$parse',
+    function($scope, $exceptionHandler, $attr, $element, $parse) {
+  this.$viewValue = Number.NaN;
+  this.$modelValue = Number.NaN;
+  this.$parsers = [];
+  this.$formatters = [];
+  this.$viewChangeListeners = [];
+  this.$pristine = true;
+  this.$dirty = false;
+  this.$valid = true;
+  this.$invalid = false;
+  this.$name = $attr.name;
+
+  var ngModelGet = $parse($attr.ngModel),
+      ngModelSet = ngModelGet.assign;
+
+  if (!ngModelSet) {
+    throw Error(NON_ASSIGNABLE_MODEL_EXPRESSION + $attr.ngModel +
+        ' (' + startingTag($element) + ')');
+  }
+
+  /**
+   * @ngdoc function
+   * @name ng.directive:ngModel.NgModelController#$render
+   * @methodOf ng.directive:ngModel.NgModelController
+   *
+   * @description
+   * Called when the view needs to be updated. It is expected that the user of the ng-model
+   * directive will implement this method.
+   */
+  this.$render = noop;
+
+  var parentForm = $element.inheritedData('$formController') || nullFormCtrl,
+      invalidCount = 0, // used to easily determine if we are valid
+      $error = this.$error = {}; // keep invalid keys here
+
+
+  // Setup initial state of the control
+  $element.addClass(PRISTINE_CLASS);
+  toggleValidCss(true);
+
+  // convenience method for easy toggling of classes
+  function toggleValidCss(isValid, validationErrorKey) {
+    validationErrorKey = validationErrorKey ? '-' + snake_case(validationErrorKey, '-') : '';
+    $element.
+      removeClass((isValid ? INVALID_CLASS : VALID_CLASS) + validationErrorKey).
+      addClass((isValid ? VALID_CLASS : INVALID_CLASS) + validationErrorKey);
+  }
+
+  /**
+   * @ngdoc function
+   * @name ng.directive:ngModel.NgModelController#$setValidity
+   * @methodOf ng.directive:ngModel.NgModelController
+   *
+   * @description
+   * Change the validity state, and notifies the form when the control changes validity. (i.e. it
+   * does not notify form if given validator is already marked as invalid).
+   *
+   * This method should be called by validators - i.e. the parser or formatter functions.
+   *
+   * @param {string} validationErrorKey Name of the validator. the `validationErrorKey` will assign
+   *        to `$error[validationErrorKey]=isValid` so that it is available for data-binding.
+   *        The `validationErrorKey` should be in camelCase and will get converted into dash-case
+   *        for class name. Example: `myError` will result in `ng-valid-my-error` and `ng-invalid-my-error`
+   *        class and can be bound to as  `{{someForm.someControl.$error.myError}}` .
+   * @param {boolean} isValid Whether the current state is valid (true) or invalid (false).
+   */
+  this.$setValidity = function(validationErrorKey, isValid) {
+    if ($error[validationErrorKey] === !isValid) return;
+
+    if (isValid) {
+      if ($error[validationErrorKey]) invalidCount--;
+      if (!invalidCount) {
+        toggleValidCss(true);
+        this.$valid = true;
+        this.$invalid = false;
+      }
+    } else {
+      toggleValidCss(false);
+      this.$invalid = true;
+      this.$valid = false;
+      invalidCount++;
+    }
+
+    $error[validationErrorKey] = !isValid;
+    toggleValidCss(isValid, validationErrorKey);
+
+    parentForm.$setValidity(validationErrorKey, isValid, this);
+  };
+
+
+  /**
+   * @ngdoc function
+   * @name ng.directive:ngModel.NgModelController#$setViewValue
+   * @methodOf ng.directive:ngModel.NgModelController
+   *
+   * @description
+   * Read a value from view.
+   *
+   * This method should be called from within a DOM event handler.
+   * For example {@link ng.directive:input input} or
+   * {@link ng.directive:select select} directives call it.
+   *
+   * It internally calls all `parsers` and if resulted value is valid, updates the model and
+   * calls all registered change listeners.
+   *
+   * @param {string} value Value from the view.
+   */
+  this.$setViewValue = function(value) {
+    this.$viewValue = value;
+
+    // change to dirty
+    if (this.$pristine) {
+      this.$dirty = true;
+      this.$pristine = false;
+      $element.removeClass(PRISTINE_CLASS).addClass(DIRTY_CLASS);
+      parentForm.$setDirty();
+    }
+
+    forEach(this.$parsers, function(fn) {
+      value = fn(value);
+    });
+
+    if (this.$modelValue !== value) {
+      this.$modelValue = value;
+      ngModelSet($scope, value);
+      forEach(this.$viewChangeListeners, function(listener) {
+        try {
+          listener();
+        } catch(e) {
+          $exceptionHandler(e);
+        }
+      })
+    }
+  };
+
+  // model -> value
+  var ctrl = this;
+
+  $scope.$watch(function ngModelWatch() {
+    var value = ngModelGet($scope);
+
+    // if scope model value and ngModel value are out of sync
+    if (ctrl.$modelValue !== value) {
+
+      var formatters = ctrl.$formatters,
+          idx = formatters.length;
+
+      ctrl.$modelValue = value;
+      while(idx--) {
+        value = formatters[idx](value);
+      }
+
+      if (ctrl.$viewValue !== value) {
+        ctrl.$viewValue = value;
+        ctrl.$render();
+      }
+    }
+  });
+}];
+
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngModel
+ *
+ * @element input
+ *
+ * @description
+ * Is directive that tells Angular to do two-way data binding. It works together with `input`,
+ * `select`, `textarea`. You can easily write your own directives to use `ngModel` as well.
+ *
+ * `ngModel` is responsible for:
+ *
+ * - binding the view into the model, which other directives such as `input`, `textarea` or `select`
+ *   require,
+ * - providing validation behavior (i.e. required, number, email, url),
+ * - keeping state of the control (valid/invalid, dirty/pristine, validation errors),
+ * - setting related css class onto the element (`ng-valid`, `ng-invalid`, `ng-dirty`, `ng-pristine`),
+ * - register the control with parent {@link ng.directive:form form}.
+ *
+ * For basic examples, how to use `ngModel`, see:
+ *
+ *  - {@link ng.directive:input input}
+ *    - {@link ng.directive:input.text text}
+ *    - {@link ng.directive:input.checkbox checkbox}
+ *    - {@link ng.directive:input.radio radio}
+ *    - {@link ng.directive:input.number number}
+ *    - {@link ng.directive:input.email email}
+ *    - {@link ng.directive:input.url url}
+ *  - {@link ng.directive:select select}
+ *  - {@link ng.directive:textarea textarea}
+ *
+ */
+var ngModelDirective = function() {
+  return {
+    require: ['ngModel', '^?form'],
+    controller: NgModelController,
+    link: function(scope, element, attr, ctrls) {
+      // notify others, especially parent forms
+
+      var modelCtrl = ctrls[0],
+          formCtrl = ctrls[1] || nullFormCtrl;
+
+      formCtrl.$addControl(modelCtrl);
+
+      element.bind('$destroy', function() {
+        formCtrl.$removeControl(modelCtrl);
+      });
+    }
+  };
+};
+
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngChange
+ * @restrict E
+ *
+ * @description
+ * Evaluate given expression when user changes the input.
+ * The expression is not evaluated when the value change is coming from the model.
+ *
+ * Note, this directive requires `ngModel` to be present.
+ *
+ * @element input
+ *
+ * @example
+ * <doc:example>
+ *   <doc:source>
+ *     <script>
+ *       function Controller($scope) {
+ *         $scope.counter = 0;
+ *         $scope.change = function() {
+ *           $scope.counter++;
+ *         };
+ *       }
+ *     </script>
+ *     <div ng-controller="Controller">
+ *       <input type="checkbox" ng-model="confirmed" ng-change="change()" id="ng-change-example1" />
+ *       <input type="checkbox" ng-model="confirmed" id="ng-change-example2" />
+ *       <label for="ng-change-example2">Confirmed</label><br />
+ *       debug = {{confirmed}}<br />
+ *       counter = {{counter}}
+ *     </div>
+ *   </doc:source>
+ *   <doc:scenario>
+ *     it('should evaluate the expression if changing from view', function() {
+ *       expect(binding('counter')).toEqual('0');
+ *       element('#ng-change-example1').click();
+ *       expect(binding('counter')).toEqual('1');
+ *       expect(binding('confirmed')).toEqual('true');
+ *     });
+ *
+ *     it('should not evaluate the expression if changing from model', function() {
+ *       element('#ng-change-example2').click();
+ *       expect(binding('counter')).toEqual('0');
+ *       expect(binding('confirmed')).toEqual('true');
+ *     });
+ *   </doc:scenario>
+ * </doc:example>
+ */
+var ngChangeDirective = valueFn({
+  require: 'ngModel',
+  link: function(scope, element, attr, ctrl) {
+    ctrl.$viewChangeListeners.push(function() {
+      scope.$eval(attr.ngChange);
+    });
+  }
+});
+
+
+var requiredDirective = function() {
+  return {
+    require: '?ngModel',
+    link: function(scope, elm, attr, ctrl) {
+      if (!ctrl) return;
+      attr.required = true; // force truthy in case we are on non input element
+
+      var validator = function(value) {
+        if (attr.required && (isEmpty(value) || value === false)) {
+          ctrl.$setValidity('required', false);
+          return;
+        } else {
+          ctrl.$setValidity('required', true);
+          return value;
+        }
+      };
+
+      ctrl.$formatters.push(validator);
+      ctrl.$parsers.unshift(validator);
+
+      attr.$observe('required', function() {
+        validator(ctrl.$viewValue);
+      });
+    }
+  };
+};
+
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngList
+ *
+ * @description
+ * Text input that converts between comma-separated string into an array of strings.
+ *
+ * @element input
+ * @param {string=} ngList optional delimiter that should be used to split the value. If
+ *   specified in form `/something/` then the value will be converted into a regular expression.
+ *
+ * @example
+    <doc:example>
+      <doc:source>
+       <script>
+         function Ctrl($scope) {
+           $scope.names = ['igor', 'misko', 'vojta'];
+         }
+       </script>
+       <form name="myForm" ng-controller="Ctrl">
+         List: <input name="namesInput" ng-model="names" ng-list required>
+         <span class="error" ng-show="myForm.list.$error.required">
+           Required!</span>
+         <tt>names = {{names}}</tt><br/>
+         <tt>myForm.namesInput.$valid = {{myForm.namesInput.$valid}}</tt><br/>
+         <tt>myForm.namesInput.$error = {{myForm.namesInput.$error}}</tt><br/>
+         <tt>myForm.$valid = {{myForm.$valid}}</tt><br/>
+         <tt>myForm.$error.required = {{!!myForm.$error.required}}</tt><br/>
+        </form>
+      </doc:source>
+      <doc:scenario>
+        it('should initialize to model', function() {
+          expect(binding('names')).toEqual('["igor","misko","vojta"]');
+          expect(binding('myForm.namesInput.$valid')).toEqual('true');
+        });
+
+        it('should be invalid if empty', function() {
+          input('names').enter('');
+          expect(binding('names')).toEqual('[]');
+          expect(binding('myForm.namesInput.$valid')).toEqual('false');
+        });
+      </doc:scenario>
+    </doc:example>
+ */
+var ngListDirective = function() {
+  return {
+    require: 'ngModel',
+    link: function(scope, element, attr, ctrl) {
+      var match = /\/(.*)\//.exec(attr.ngList),
+          separator = match && new RegExp(match[1]) || attr.ngList || ',';
+
+      var parse = function(viewValue) {
+        var list = [];
+
+        if (viewValue) {
+          forEach(viewValue.split(separator), function(value) {
+            if (value) list.push(trim(value));
+          });
+        }
+
+        return list;
+      };
+
+      ctrl.$parsers.push(parse);
+      ctrl.$formatters.push(function(value) {
+        if (isArray(value)) {
+          return value.join(', ');
+        }
+
+        return undefined;
+      });
+    }
+  };
+};
+
+
+var CONSTANT_VALUE_REGEXP = /^(true|false|\d+)$/;
+
+var ngValueDirective = function() {
+  return {
+    priority: 100,
+    compile: function(tpl, tplAttr) {
+      if (CONSTANT_VALUE_REGEXP.test(tplAttr.ngValue)) {
+        return function(scope, elm, attr) {
+          attr.$set('value', scope.$eval(attr.ngValue));
+        };
+      } else {
+        return function(scope, elm, attr) {
+          scope.$watch(attr.ngValue, function valueWatchAction(value) {
+            attr.$set('value', value, false);
+          });
+        };
+      }
+    }
+  };
+};
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngBind
+ *
+ * @description
+ * The `ngBind` attribute tells Angular to replace the text content of the specified HTML element
+ * with the value of a given expression, and to update the text content when the value of that
+ * expression changes.
+ *
+ * Typically, you don't use `ngBind` directly, but instead you use the double curly markup like
+ * `{{ expression }}` which is similar but less verbose.
+ *
+ * One scenario in which the use of `ngBind` is preferred over `{{ expression }}` binding is when
+ * it's desirable to put bindings into template that is momentarily displayed by the browser in its
+ * raw state before Angular compiles it. Since `ngBind` is an element attribute, it makes the
+ * bindings invisible to the user while the page is loading.
+ *
+ * An alternative solution to this problem would be using the
+ * {@link ng.directive:ngCloak ngCloak} directive.
+ *
+ *
+ * @element ANY
+ * @param {expression} ngBind {@link guide/expression Expression} to evaluate.
+ *
+ * @example
+ * Enter a name in the Live Preview text box; the greeting below the text box changes instantly.
+   <doc:example>
+     <doc:source>
+       <script>
+         function Ctrl($scope) {
+           $scope.name = 'Whirled';
+         }
+       </script>
+       <div ng-controller="Ctrl">
+         Enter name: <input type="text" ng-model="name"><br>
+         Hello <span ng-bind="name"></span>!
+       </div>
+     </doc:source>
+     <doc:scenario>
+       it('should check ng-bind', function() {
+         expect(using('.doc-example-live').binding('name')).toBe('Whirled');
+         using('.doc-example-live').input('name').enter('world');
+         expect(using('.doc-example-live').binding('name')).toBe('world');
+       });
+     </doc:scenario>
+   </doc:example>
+ */
+var ngBindDirective = ngDirective(function(scope, element, attr) {
+  element.addClass('ng-binding').data('$binding', attr.ngBind);
+  scope.$watch(attr.ngBind, function ngBindWatchAction(value) {
+    element.text(value == undefined ? '' : value);
+  });
+});
+
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngBindTemplate
+ *
+ * @description
+ * The `ngBindTemplate` directive specifies that the element
+ * text should be replaced with the template in ngBindTemplate.
+ * Unlike ngBind the ngBindTemplate can contain multiple `{{` `}}`
+ * expressions. (This is required since some HTML elements
+ * can not have SPAN elements such as TITLE, or OPTION to name a few.)
+ *
+ * @element ANY
+ * @param {string} ngBindTemplate template of form
+ *   <tt>{{</tt> <tt>expression</tt> <tt>}}</tt> to eval.
+ *
+ * @example
+ * Try it here: enter text in text box and watch the greeting change.
+   <doc:example>
+     <doc:source>
+       <script>
+         function Ctrl($scope) {
+           $scope.salutation = 'Hello';
+           $scope.name = 'World';
+         }
+       </script>
+       <div ng-controller="Ctrl">
+        Salutation: <input type="text" ng-model="salutation"><br>
+        Name: <input type="text" ng-model="name"><br>
+        <pre ng-bind-template="{{salutation}} {{name}}!"></pre>
+       </div>
+     </doc:source>
+     <doc:scenario>
+       it('should check ng-bind', function() {
+         expect(using('.doc-example-live').binding('salutation')).
+           toBe('Hello');
+         expect(using('.doc-example-live').binding('name')).
+           toBe('World');
+         using('.doc-example-live').input('salutation').enter('Greetings');
+         using('.doc-example-live').input('name').enter('user');
+         expect(using('.doc-example-live').binding('salutation')).
+           toBe('Greetings');
+         expect(using('.doc-example-live').binding('name')).
+           toBe('user');
+       });
+     </doc:scenario>
+   </doc:example>
+ */
+var ngBindTemplateDirective = ['$interpolate', function($interpolate) {
+  return function(scope, element, attr) {
+    // TODO: move this to scenario runner
+    var interpolateFn = $interpolate(element.attr(attr.$attr.ngBindTemplate));
+    element.addClass('ng-binding').data('$binding', interpolateFn);
+    attr.$observe('ngBindTemplate', function(value) {
+      element.text(value);
+    });
+  }
+}];
+
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngBindHtmlUnsafe
+ *
+ * @description
+ * Creates a binding that will innerHTML the result of evaluating the `expression` into the current
+ * element. *The innerHTML-ed content will not be sanitized!* You should use this directive only if
+ * {@link ngSanitize.directive:ngBindHtml ngBindHtml} directive is too
+ * restrictive and when you absolutely trust the source of the content you are binding to.
+ *
+ * See {@link ngSanitize.$sanitize $sanitize} docs for examples.
+ *
+ * @element ANY
+ * @param {expression} ngBindHtmlUnsafe {@link guide/expression Expression} to evaluate.
+ */
+var ngBindHtmlUnsafeDirective = [function() {
+  return function(scope, element, attr) {
+    element.addClass('ng-binding').data('$binding', attr.ngBindHtmlUnsafe);
+    scope.$watch(attr.ngBindHtmlUnsafe, function ngBindHtmlUnsafeWatchAction(value) {
+      element.html(value || '');
+    });
+  };
+}];
+
+function classDirective(name, selector) {
+  name = 'ngClass' + name;
+  return ngDirective(function(scope, element, attr) {
+    var oldVal = undefined;
+
+    scope.$watch(attr[name], ngClassWatchAction, true);
+
+    attr.$observe('class', function(value) {
+      var ngClass = scope.$eval(attr[name]);
+      ngClassWatchAction(ngClass, ngClass);
+    });
+
+
+    if (name !== 'ngClass') {
+      scope.$watch('$index', function($index, old$index) {
+        var mod = $index & 1;
+        if (mod !== old$index & 1) {
+          if (mod === selector) {
+            addClass(scope.$eval(attr[name]));
+          } else {
+            removeClass(scope.$eval(attr[name]));
+          }
+        }
+      });
+    }
+
+
+    function ngClassWatchAction(newVal) {
+      if (selector === true || scope.$index % 2 === selector) {
+        if (oldVal && !equals(newVal,oldVal)) {
+          removeClass(oldVal);
+        }
+        addClass(newVal);
+      }
+      oldVal = copy(newVal);
+    }
+
+
+    function removeClass(classVal) {
+      if (isObject(classVal) && !isArray(classVal)) {
+        classVal = map(classVal, function(v, k) { if (v) return k });
+      }
+      element.removeClass(isArray(classVal) ? classVal.join(' ') : classVal);
+    }
+
+
+    function addClass(classVal) {
+      if (isObject(classVal) && !isArray(classVal)) {
+        classVal = map(classVal, function(v, k) { if (v) return k });
+      }
+      if (classVal) {
+        element.addClass(isArray(classVal) ? classVal.join(' ') : classVal);
+      }
+    }
+  });
+}
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngClass
+ *
+ * @description
+ * The `ngClass` allows you to set CSS class on HTML element dynamically by databinding an
+ * expression that represents all classes to be added.
+ *
+ * The directive won't add duplicate classes if a particular class was already set.
+ *
+ * When the expression changes, the previously added classes are removed and only then the
+ * new classes are added.
+ *
+ * @element ANY
+ * @param {expression} ngClass {@link guide/expression Expression} to eval. The result
+ *   of the evaluation can be a string representing space delimited class
+ *   names, an array, or a map of class names to boolean values.
+ *
+ * @example
+   <example>
+     <file name="index.html">
+      <input type="button" value="set" ng-click="myVar='my-class'">
+      <input type="button" value="clear" ng-click="myVar=''">
+      <br>
+      <span ng-class="myVar">Sample Text</span>
+     </file>
+     <file name="style.css">
+       .my-class {
+         color: red;
+       }
+     </file>
+     <file name="scenario.js">
+       it('should check ng-class', function() {
+         expect(element('.doc-example-live span').prop('className')).not().
+           toMatch(/my-class/);
+
+         using('.doc-example-live').element(':button:first').click();
+
+         expect(element('.doc-example-live span').prop('className')).
+           toMatch(/my-class/);
+
+         using('.doc-example-live').element(':button:last').click();
+
+         expect(element('.doc-example-live span').prop('className')).not().
+           toMatch(/my-class/);
+       });
+     </file>
+   </example>
+ */
+var ngClassDirective = classDirective('', true);
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngClassOdd
+ *
+ * @description
+ * The `ngClassOdd` and `ngClassEven` directives work exactly as
+ * {@link ng.directive:ngClass ngClass}, except it works in
+ * conjunction with `ngRepeat` and takes affect only on odd (even) rows.
+ *
+ * This directive can be applied only within a scope of an
+ * {@link ng.directive:ngRepeat ngRepeat}.
+ *
+ * @element ANY
+ * @param {expression} ngClassOdd {@link guide/expression Expression} to eval. The result
+ *   of the evaluation can be a string representing space delimited class names or an array.
+ *
+ * @example
+   <example>
+     <file name="index.html">
+        <ol ng-init="names=['John', 'Mary', 'Cate', 'Suz']">
+          <li ng-repeat="name in names">
+           <span ng-class-odd="'odd'" ng-class-even="'even'">
+             {{name}}
+           </span>
+          </li>
+        </ol>
+     </file>
+     <file name="style.css">
+       .odd {
+         color: red;
+       }
+       .even {
+         color: blue;
+       }
+     </file>
+     <file name="scenario.js">
+       it('should check ng-class-odd and ng-class-even', function() {
+         expect(element('.doc-example-live li:first span').prop('className')).
+           toMatch(/odd/);
+         expect(element('.doc-example-live li:last span').prop('className')).
+           toMatch(/even/);
+       });
+     </file>
+   </example>
+ */
+var ngClassOddDirective = classDirective('Odd', 0);
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngClassEven
+ *
+ * @description
+ * The `ngClassOdd` and `ngClassEven` directives work exactly as
+ * {@link ng.directive:ngClass ngClass}, except it works in
+ * conjunction with `ngRepeat` and takes affect only on odd (even) rows.
+ *
+ * This directive can be applied only within a scope of an
+ * {@link ng.directive:ngRepeat ngRepeat}.
+ *
+ * @element ANY
+ * @param {expression} ngClassEven {@link guide/expression Expression} to eval. The
+ *   result of the evaluation can be a string representing space delimited class names or an array.
+ *
+ * @example
+   <example>
+     <file name="index.html">
+        <ol ng-init="names=['John', 'Mary', 'Cate', 'Suz']">
+          <li ng-repeat="name in names">
+           <span ng-class-odd="'odd'" ng-class-even="'even'">
+             {{name}} &nbsp; &nbsp; &nbsp;
+           </span>
+          </li>
+        </ol>
+     </file>
+     <file name="style.css">
+       .odd {
+         color: red;
+       }
+       .even {
+         color: blue;
+       }
+     </file>
+     <file name="scenario.js">
+       it('should check ng-class-odd and ng-class-even', function() {
+         expect(element('.doc-example-live li:first span').prop('className')).
+           toMatch(/odd/);
+         expect(element('.doc-example-live li:last span').prop('className')).
+           toMatch(/even/);
+       });
+     </file>
+   </example>
+ */
+var ngClassEvenDirective = classDirective('Even', 1);
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngCloak
+ *
+ * @description
+ * The `ngCloak` directive is used to prevent the Angular html template from being briefly
+ * displayed by the browser in its raw (uncompiled) form while your application is loading. Use this
+ * directive to avoid the undesirable flicker effect caused by the html template display.
+ *
+ * The directive can be applied to the `<body>` element, but typically a fine-grained application is
+ * prefered in order to benefit from progressive rendering of the browser view.
+ *
+ * `ngCloak` works in cooperation with a css rule that is embedded within `angular.js` and
+ *  `angular.min.js` files. Following is the css rule:
+ *
+ * <pre>
+ * [ng\:cloak], [ng-cloak], [data-ng-cloak], [x-ng-cloak], .ng-cloak, .x-ng-cloak {
+ *   display: none;
+ * }
+ * </pre>
+ *
+ * When this css rule is loaded by the browser, all html elements (including their children) that
+ * are tagged with the `ng-cloak` directive are hidden. When Angular comes across this directive
+ * during the compilation of the template it deletes the `ngCloak` element attribute, which
+ * makes the compiled element visible.
+ *
+ * For the best result, `angular.js` script must be loaded in the head section of the html file;
+ * alternatively, the css rule (above) must be included in the external stylesheet of the
+ * application.
+ *
+ * Legacy browsers, like IE7, do not provide attribute selector support (added in CSS 2.1) so they
+ * cannot match the `[ng\:cloak]` selector. To work around this limitation, you must add the css
+ * class `ngCloak` in addition to `ngCloak` directive as shown in the example below.
+ *
+ * @element ANY
+ *
+ * @example
+   <doc:example>
+     <doc:source>
+        <div id="template1" ng-cloak>{{ 'hello' }}</div>
+        <div id="template2" ng-cloak class="ng-cloak">{{ 'hello IE7' }}</div>
+     </doc:source>
+     <doc:scenario>
+       it('should remove the template directive and css class', function() {
+         expect(element('.doc-example-live #template1').attr('ng-cloak')).
+           not().toBeDefined();
+         expect(element('.doc-example-live #template2').attr('ng-cloak')).
+           not().toBeDefined();
+       });
+     </doc:scenario>
+   </doc:example>
+ *
+ */
+var ngCloakDirective = ngDirective({
+  compile: function(element, attr) {
+    attr.$set('ngCloak', undefined);
+    element.removeClass('ng-cloak');
+  }
+});
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngController
+ *
+ * @description
+ * The `ngController` directive assigns behavior to a scope. This is a key aspect of how angular
+ * supports the principles behind the Model-View-Controller design pattern.
+ *
+ * MVC components in angular:
+ *
+ * * Model â€” The Model is data in scope properties; scopes are attached to the DOM.
+ * * View â€” The template (HTML with data bindings) is rendered into the View.
+ * * Controller â€” The `ngController` directive specifies a Controller class; the class has
+ *   methods that typically express the business logic behind the application.
+ *
+ * Note that an alternative way to define controllers is via the {@link ng.$route $route} service.
+ *
+ * @element ANY
+ * @scope
+ * @param {expression} ngController Name of a globally accessible constructor function or an
+ *     {@link guide/expression expression} that on the current scope evaluates to a
+ *     constructor function.
+ *
+ * @example
+ * Here is a simple form for editing user contact information. Adding, removing, clearing, and
+ * greeting are methods declared on the controller (see source tab). These methods can
+ * easily be called from the angular markup. Notice that the scope becomes the `this` for the
+ * controller's instance. This allows for easy access to the view data from the controller. Also
+ * notice that any changes to the data are automatically reflected in the View without the need
+ * for a manual update.
+   <doc:example>
+     <doc:source>
+      <script>
+        function SettingsController($scope) {
+          $scope.name = "John Smith";
+          $scope.contacts = [
+            {type:'phone', value:'408 555 1212'},
+            {type:'email', value:'john.smith@example.org'} ];
+
+          $scope.greet = function() {
+           alert(this.name);
+          };
+
+          $scope.addContact = function() {
+           this.contacts.push({type:'email', value:'yourname@example.org'});
+          };
+
+          $scope.removeContact = function(contactToRemove) {
+           var index = this.contacts.indexOf(contactToRemove);
+           this.contacts.splice(index, 1);
+          };
+
+          $scope.clearContact = function(contact) {
+           contact.type = 'phone';
+           contact.value = '';
+          };
+        }
+      </script>
+      <div ng-controller="SettingsController">
+        Name: <input type="text" ng-model="name"/>
+        [ <a href="" ng-click="greet()">greet</a> ]<br/>
+        Contact:
+        <ul>
+          <li ng-repeat="contact in contacts">
+            <select ng-model="contact.type">
+               <option>phone</option>
+               <option>email</option>
+            </select>
+            <input type="text" ng-model="contact.value"/>
+            [ <a href="" ng-click="clearContact(contact)">clear</a>
+            | <a href="" ng-click="removeContact(contact)">X</a> ]
+          </li>
+          <li>[ <a href="" ng-click="addContact()">add</a> ]</li>
+       </ul>
+      </div>
+     </doc:source>
+     <doc:scenario>
+       it('should check controller', function() {
+         expect(element('.doc-example-live div>:input').val()).toBe('John Smith');
+         expect(element('.doc-example-live li:nth-child(1) input').val())
+           .toBe('408 555 1212');
+         expect(element('.doc-example-live li:nth-child(2) input').val())
+           .toBe('john.smith@example.org');
+
+         element('.doc-example-live li:first a:contains("clear")').click();
+         expect(element('.doc-example-live li:first input').val()).toBe('');
+
+         element('.doc-example-live li:last a:contains("add")').click();
+         expect(element('.doc-example-live li:nth-child(3) input').val())
+           .toBe('yourname@example.org');
+       });
+     </doc:scenario>
+   </doc:example>
+ */
+var ngControllerDirective = [function() {
+  return {
+    scope: true,
+    controller: '@'
+  };
+}];
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngCsp
+ * @priority 1000
+ *
+ * @element html
+ * @description
+ * Enables [CSP (Content Security Policy)](https://developer.mozilla.org/en/Security/CSP) support.
+ *
+ * This is necessary when developing things like Google Chrome Extensions.
+ *
+ * CSP forbids apps to use `eval` or `Function(string)` generated functions (among other things).
+ * For us to be compatible, we just need to implement the "getterFn" in $parse without violating
+ * any of these restrictions.
+ *
+ * AngularJS uses `Function(string)` generated functions as a speed optimization. By applying `ngCsp`
+ * it is be possible to opt into the CSP compatible mode. When this mode is on AngularJS will
+ * evaluate all expressions up to 30% slower than in non-CSP mode, but no security violations will
+ * be raised.
+ *
+ * In order to use this feature put `ngCsp` directive on the root element of the application.
+ *
+ * @example
+ * This example shows how to apply the `ngCsp` directive to the `html` tag.
+   <pre>
+     <!doctype html>
+     <html ng-app ng-csp>
+     ...
+     ...
+     </html>
+   </pre>
+ */
+
+var ngCspDirective = ['$sniffer', function($sniffer) {
+  return {
+    priority: 1000,
+    compile: function() {
+      $sniffer.csp = true;
+    }
+  };
+}];
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngClick
+ *
+ * @description
+ * The ngClick allows you to specify custom behavior when
+ * element is clicked.
+ *
+ * @element ANY
+ * @param {expression} ngClick {@link guide/expression Expression} to evaluate upon
+ * click. (Event object is available as `$event`)
+ *
+ * @example
+   <doc:example>
+     <doc:source>
+      <button ng-click="count = count + 1" ng-init="count=0">
+        Increment
+      </button>
+      count: {{count}}
+     </doc:source>
+     <doc:scenario>
+       it('should check ng-click', function() {
+         expect(binding('count')).toBe('0');
+         element('.doc-example-live :button').click();
+         expect(binding('count')).toBe('1');
+       });
+     </doc:scenario>
+   </doc:example>
+ */
+/*
+ * A directive that allows creation of custom onclick handlers that are defined as angular
+ * expressions and are compiled and executed within the current scope.
+ *
+ * Events that are handled via these handler are always configured not to propagate further.
+ */
+var ngEventDirectives = {};
+forEach(
+  'click dblclick mousedown mouseup mouseover mouseout mousemove mouseenter mouseleave'.split(' '),
+  function(name) {
+    var directiveName = directiveNormalize('ng-' + name);
+    ngEventDirectives[directiveName] = ['$parse', function($parse) {
+      return function(scope, element, attr) {
+        var fn = $parse(attr[directiveName]);
+        element.bind(lowercase(name), function(event) {
+          scope.$apply(function() {
+            fn(scope, {$event:event});
+          });
+        });
+      };
+    }];
+  }
+);
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngDblclick
+ *
+ * @description
+ * The `ngDblclick` directive allows you to specify custom behavior on dblclick event.
+ *
+ * @element ANY
+ * @param {expression} ngDblclick {@link guide/expression Expression} to evaluate upon
+ * dblclick. (Event object is available as `$event`)
+ *
+ * @example
+ * See {@link ng.directive:ngClick ngClick}
+ */
+
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngMousedown
+ *
+ * @description
+ * The ngMousedown directive allows you to specify custom behavior on mousedown event.
+ *
+ * @element ANY
+ * @param {expression} ngMousedown {@link guide/expression Expression} to evaluate upon
+ * mousedown. (Event object is available as `$event`)
+ *
+ * @example
+ * See {@link ng.directive:ngClick ngClick}
+ */
+
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngMouseup
+ *
+ * @description
+ * Specify custom behavior on mouseup event.
+ *
+ * @element ANY
+ * @param {expression} ngMouseup {@link guide/expression Expression} to evaluate upon
+ * mouseup. (Event object is available as `$event`)
+ *
+ * @example
+ * See {@link ng.directive:ngClick ngClick}
+ */
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngMouseover
+ *
+ * @description
+ * Specify custom behavior on mouseover event.
+ *
+ * @element ANY
+ * @param {expression} ngMouseover {@link guide/expression Expression} to evaluate upon
+ * mouseover. (Event object is available as `$event`)
+ *
+ * @example
+ * See {@link ng.directive:ngClick ngClick}
+ */
+
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngMouseenter
+ *
+ * @description
+ * Specify custom behavior on mouseenter event.
+ *
+ * @element ANY
+ * @param {expression} ngMouseenter {@link guide/expression Expression} to evaluate upon
+ * mouseenter. (Event object is available as `$event`)
+ *
+ * @example
+ * See {@link ng.directive:ngClick ngClick}
+ */
+
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngMouseleave
+ *
+ * @description
+ * Specify custom behavior on mouseleave event.
+ *
+ * @element ANY
+ * @param {expression} ngMouseleave {@link guide/expression Expression} to evaluate upon
+ * mouseleave. (Event object is available as `$event`)
+ *
+ * @example
+ * See {@link ng.directive:ngClick ngClick}
+ */
+
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngMousemove
+ *
+ * @description
+ * Specify custom behavior on mousemove event.
+ *
+ * @element ANY
+ * @param {expression} ngMousemove {@link guide/expression Expression} to evaluate upon
+ * mousemove. (Event object is available as `$event`)
+ *
+ * @example
+ * See {@link ng.directive:ngClick ngClick}
+ */
+
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngSubmit
+ *
+ * @description
+ * Enables binding angular expressions to onsubmit events.
+ *
+ * Additionally it prevents the default action (which for form means sending the request to the
+ * server and reloading the current page).
+ *
+ * @element form
+ * @param {expression} ngSubmit {@link guide/expression Expression} to eval.
+ *
+ * @example
+   <doc:example>
+     <doc:source>
+      <script>
+        function Ctrl($scope) {
+          $scope.list = [];
+          $scope.text = 'hello';
+          $scope.submit = function() {
+            if (this.text) {
+              this.list.push(this.text);
+              this.text = '';
+            }
+          };
+        }
+      </script>
+      <form ng-submit="submit()" ng-controller="Ctrl">
+        Enter text and hit enter:
+        <input type="text" ng-model="text" name="text" />
+        <input type="submit" id="submit" value="Submit" />
+        <pre>list={{list}}</pre>
+      </form>
+     </doc:source>
+     <doc:scenario>
+       it('should check ng-submit', function() {
+         expect(binding('list')).toBe('[]');
+         element('.doc-example-live #submit').click();
+         expect(binding('list')).toBe('["hello"]');
+         expect(input('text').val()).toBe('');
+       });
+       it('should ignore empty strings', function() {
+         expect(binding('list')).toBe('[]');
+         element('.doc-example-live #submit').click();
+         element('.doc-example-live #submit').click();
+         expect(binding('list')).toBe('["hello"]');
+       });
+     </doc:scenario>
+   </doc:example>
+ */
+var ngSubmitDirective = ngDirective(function(scope, element, attrs) {
+  element.bind('submit', function() {
+    scope.$apply(attrs.ngSubmit);
+  });
+});
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngInclude
+ * @restrict ECA
+ *
+ * @description
+ * Fetches, compiles and includes an external HTML fragment.
+ *
+ * Keep in mind that Same Origin Policy applies to included resources
+ * (e.g. ngInclude won't work for cross-domain requests on all browsers and for
+ *  file:// access on some browsers).
+ *
+ * @scope
+ *
+ * @param {string} ngInclude|src angular expression evaluating to URL. If the source is a string constant,
+ *                 make sure you wrap it in quotes, e.g. `src="'myPartialTemplate.html'"`.
+ * @param {string=} onload Expression to evaluate when a new partial is loaded.
+ *
+ * @param {string=} autoscroll Whether `ngInclude` should call {@link ng.$anchorScroll
+ *                  $anchorScroll} to scroll the viewport after the content is loaded.
+ *
+ *                  - If the attribute is not set, disable scrolling.
+ *                  - If the attribute is set without value, enable scrolling.
+ *                  - Otherwise enable scrolling only if the expression evaluates to truthy value.
+ *
+ * @example
+  <example>
+    <file name="index.html">
+     <div ng-controller="Ctrl">
+       <select ng-model="template" ng-options="t.name for t in templates">
+        <option value="">(blank)</option>
+       </select>
+       url of the template: <tt>{{template.url}}</tt>
+       <hr/>
+       <div ng-include src="template.url"></div>
+     </div>
+    </file>
+    <file name="script.js">
+      function Ctrl($scope) {
+        $scope.templates =
+          [ { name: 'template1.html', url: 'template1.html'}
+          , { name: 'template2.html', url: 'template2.html'} ];
+        $scope.template = $scope.templates[0];
+      }
+     </file>
+    <file name="template1.html">
+      Content of template1.html
+    </file>
+    <file name="template2.html">
+      Content of template2.html
+    </file>
+    <file name="scenario.js">
+      it('should load template1.html', function() {
+       expect(element('.doc-example-live [ng-include]').text()).
+         toMatch(/Content of template1.html/);
+      });
+      it('should load template2.html', function() {
+       select('template').option('1');
+       expect(element('.doc-example-live [ng-include]').text()).
+         toMatch(/Content of template2.html/);
+      });
+      it('should change to blank', function() {
+       select('template').option('');
+       expect(element('.doc-example-live [ng-include]').text()).toEqual('');
+      });
+    </file>
+  </example>
+ */
+
+
+/**
+ * @ngdoc event
+ * @name ng.directive:ngInclude#$includeContentLoaded
+ * @eventOf ng.directive:ngInclude
+ * @eventType emit on the current ngInclude scope
+ * @description
+ * Emitted every time the ngInclude content is reloaded.
+ */
+var ngIncludeDirective = ['$http', '$templateCache', '$anchorScroll', '$compile',
+                  function($http,   $templateCache,   $anchorScroll,   $compile) {
+  return {
+    restrict: 'ECA',
+    terminal: true,
+    compile: function(element, attr) {
+      var srcExp = attr.ngInclude || attr.src,
+          onloadExp = attr.onload || '',
+          autoScrollExp = attr.autoscroll;
+
+      return function(scope, element) {
+        var changeCounter = 0,
+            childScope;
+
+        var clearContent = function() {
+          if (childScope) {
+            childScope.$destroy();
+            childScope = null;
+          }
+
+          element.html('');
+        };
+
+        scope.$watch(srcExp, function ngIncludeWatchAction(src) {
+          var thisChangeId = ++changeCounter;
+
+          if (src) {
+            $http.get(src, {cache: $templateCache}).success(function(response) {
+              if (thisChangeId !== changeCounter) return;
+
+              if (childScope) childScope.$destroy();
+              childScope = scope.$new();
+
+              element.html(response);
+              $compile(element.contents())(childScope);
+
+              if (isDefined(autoScrollExp) && (!autoScrollExp || scope.$eval(autoScrollExp))) {
+                $anchorScroll();
+              }
+
+              childScope.$emit('$includeContentLoaded');
+              scope.$eval(onloadExp);
+            }).error(function() {
+              if (thisChangeId === changeCounter) clearContent();
+            });
+          } else clearContent();
+        });
+      };
+    }
+  };
+}];
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngInit
+ *
+ * @description
+ * The `ngInit` directive specifies initialization tasks to be executed
+ *  before the template enters execution mode during bootstrap.
+ *
+ * @element ANY
+ * @param {expression} ngInit {@link guide/expression Expression} to eval.
+ *
+ * @example
+   <doc:example>
+     <doc:source>
+    <div ng-init="greeting='Hello'; person='World'">
+      {{greeting}} {{person}}!
+    </div>
+     </doc:source>
+     <doc:scenario>
+       it('should check greeting', function() {
+         expect(binding('greeting')).toBe('Hello');
+         expect(binding('person')).toBe('World');
+       });
+     </doc:scenario>
+   </doc:example>
+ */
+var ngInitDirective = ngDirective({
+  compile: function() {
+    return {
+      pre: function(scope, element, attrs) {
+        scope.$eval(attrs.ngInit);
+      }
+    }
+  }
+});
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngNonBindable
+ * @priority 1000
+ *
+ * @description
+ * Sometimes it is necessary to write code which looks like bindings but which should be left alone
+ * by angular. Use `ngNonBindable` to make angular ignore a chunk of HTML.
+ *
+ * @element ANY
+ *
+ * @example
+ * In this example there are two location where a simple binding (`{{}}`) is present, but the one
+ * wrapped in `ngNonBindable` is left alone.
+ *
+ * @example
+    <doc:example>
+      <doc:source>
+        <div>Normal: {{1 + 2}}</div>
+        <div ng-non-bindable>Ignored: {{1 + 2}}</div>
+      </doc:source>
+      <doc:scenario>
+       it('should check ng-non-bindable', function() {
+         expect(using('.doc-example-live').binding('1 + 2')).toBe('3');
+         expect(using('.doc-example-live').element('div:last').text()).
+           toMatch(/1 \+ 2/);
+       });
+      </doc:scenario>
+    </doc:example>
+ */
+var ngNonBindableDirective = ngDirective({ terminal: true, priority: 1000 });
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngPluralize
+ * @restrict EA
+ *
+ * @description
+ * # Overview
+ * `ngPluralize` is a directive that displays messages according to en-US localization rules.
+ * These rules are bundled with angular.js and the rules can be overridden
+ * (see {@link guide/i18n Angular i18n} dev guide). You configure ngPluralize directive
+ * by specifying the mappings between
+ * {@link http://unicode.org/repos/cldr-tmp/trunk/diff/supplemental/language_plural_rules.html
+ * plural categories} and the strings to be displayed.
+ *
+ * # Plural categories and explicit number rules
+ * There are two
+ * {@link http://unicode.org/repos/cldr-tmp/trunk/diff/supplemental/language_plural_rules.html
+ * plural categories} in Angular's default en-US locale: "one" and "other".
+ *
+ * While a pural category may match many numbers (for example, in en-US locale, "other" can match
+ * any number that is not 1), an explicit number rule can only match one number. For example, the
+ * explicit number rule for "3" matches the number 3. You will see the use of plural categories
+ * and explicit number rules throughout later parts of this documentation.
+ *
+ * # Configuring ngPluralize
+ * You configure ngPluralize by providing 2 attributes: `count` and `when`.
+ * You can also provide an optional attribute, `offset`.
+ *
+ * The value of the `count` attribute can be either a string or an {@link guide/expression
+ * Angular expression}; these are evaluated on the current scope for its bound value.
+ *
+ * The `when` attribute specifies the mappings between plural categories and the actual
+ * string to be displayed. The value of the attribute should be a JSON object so that Angular
+ * can interpret it correctly.
+ *
+ * The following example shows how to configure ngPluralize:
+ *
+ * <pre>
+ * <ng-pluralize count="personCount"
+                 when="{'0': 'Nobody is viewing.',
+ *                      'one': '1 person is viewing.',
+ *                      'other': '{} people are viewing.'}">
+ * </ng-pluralize>
+ *</pre>
+ *
+ * In the example, `"0: Nobody is viewing."` is an explicit number rule. If you did not
+ * specify this rule, 0 would be matched to the "other" category and "0 people are viewing"
+ * would be shown instead of "Nobody is viewing". You can specify an explicit number rule for
+ * other numbers, for example 12, so that instead of showing "12 people are viewing", you can
+ * show "a dozen people are viewing".
+ *
+ * You can use a set of closed braces(`{}`) as a placeholder for the number that you want substituted
+ * into pluralized strings. In the previous example, Angular will replace `{}` with
+ * <span ng-non-bindable>`{{personCount}}`</span>. The closed braces `{}` is a placeholder
+ * for <span ng-non-bindable>{{numberExpression}}</span>.
+ *
+ * # Configuring ngPluralize with offset
+ * The `offset` attribute allows further customization of pluralized text, which can result in
+ * a better user experience. For example, instead of the message "4 people are viewing this document",
+ * you might display "John, Kate and 2 others are viewing this document".
+ * The offset attribute allows you to offset a number by any desired value.
+ * Let's take a look at an example:
+ *
+ * <pre>
+ * <ng-pluralize count="personCount" offset=2
+ *               when="{'0': 'Nobody is viewing.',
+ *                      '1': '{{person1}} is viewing.',
+ *                      '2': '{{person1}} and {{person2}} are viewing.',
+ *                      'one': '{{person1}}, {{person2}} and one other person are viewing.',
+ *                      'other': '{{person1}}, {{person2}} and {} other people are viewing.'}">
+ * </ng-pluralize>
+ * </pre>
+ *
+ * Notice that we are still using two plural categories(one, other), but we added
+ * three explicit number rules 0, 1 and 2.
+ * When one person, perhaps John, views the document, "John is viewing" will be shown.
+ * When three people view the document, no explicit number rule is found, so
+ * an offset of 2 is taken off 3, and Angular uses 1 to decide the plural category.
+ * In this case, plural category 'one' is matched and "John, Marry and one other person are viewing"
+ * is shown.
+ *
+ * Note that when you specify offsets, you must provide explicit number rules for
+ * numbers from 0 up to and including the offset. If you use an offset of 3, for example,
+ * you must provide explicit number rules for 0, 1, 2 and 3. You must also provide plural strings for
+ * plural categories "one" and "other".
+ *
+ * @param {string|expression} count The variable to be bounded to.
+ * @param {string} when The mapping between plural category to its correspoding strings.
+ * @param {number=} offset Offset to deduct from the total number.
+ *
+ * @example
+    <doc:example>
+      <doc:source>
+        <script>
+          function Ctrl($scope) {
+            $scope.person1 = 'Igor';
+            $scope.person2 = 'Misko';
+            $scope.personCount = 1;
+          }
+        </script>
+        <div ng-controller="Ctrl">
+          Person 1:<input type="text" ng-model="person1" value="Igor" /><br/>
+          Person 2:<input type="text" ng-model="person2" value="Misko" /><br/>
+          Number of People:<input type="text" ng-model="personCount" value="1" /><br/>
+
+          <!--- Example with simple pluralization rules for en locale --->
+          Without Offset:
+          <ng-pluralize count="personCount"
+                        when="{'0': 'Nobody is viewing.',
+                               'one': '1 person is viewing.',
+                               'other': '{} people are viewing.'}">
+          </ng-pluralize><br>
+
+          <!--- Example with offset --->
+          With Offset(2):
+          <ng-pluralize count="personCount" offset=2
+                        when="{'0': 'Nobody is viewing.',
+                               '1': '{{person1}} is viewing.',
+                               '2': '{{person1}} and {{person2}} are viewing.',
+                               'one': '{{person1}}, {{person2}} and one other person are viewing.',
+                               'other': '{{person1}}, {{person2}} and {} other people are viewing.'}">
+          </ng-pluralize>
+        </div>
+      </doc:source>
+      <doc:scenario>
+        it('should show correct pluralized string', function() {
+          expect(element('.doc-example-live ng-pluralize:first').text()).
+                                             toBe('1 person is viewing.');
+          expect(element('.doc-example-live ng-pluralize:last').text()).
+                                                toBe('Igor is viewing.');
+
+          using('.doc-example-live').input('personCount').enter('0');
+          expect(element('.doc-example-live ng-pluralize:first').text()).
+                                               toBe('Nobody is viewing.');
+          expect(element('.doc-example-live ng-pluralize:last').text()).
+                                              toBe('Nobody is viewing.');
+
+          using('.doc-example-live').input('personCount').enter('2');
+          expect(element('.doc-example-live ng-pluralize:first').text()).
+                                            toBe('2 people are viewing.');
+          expect(element('.doc-example-live ng-pluralize:last').text()).
+                              toBe('Igor and Misko are viewing.');
+
+          using('.doc-example-live').input('personCount').enter('3');
+          expect(element('.doc-example-live ng-pluralize:first').text()).
+                                            toBe('3 people are viewing.');
+          expect(element('.doc-example-live ng-pluralize:last').text()).
+                              toBe('Igor, Misko and one other person are viewing.');
+
+          using('.doc-example-live').input('personCount').enter('4');
+          expect(element('.doc-example-live ng-pluralize:first').text()).
+                                            toBe('4 people are viewing.');
+          expect(element('.doc-example-live ng-pluralize:last').text()).
+                              toBe('Igor, Misko and 2 other people are viewing.');
+        });
+
+        it('should show data-binded names', function() {
+          using('.doc-example-live').input('personCount').enter('4');
+          expect(element('.doc-example-live ng-pluralize:last').text()).
+              toBe('Igor, Misko and 2 other people are viewing.');
+
+          using('.doc-example-live').input('person1').enter('Di');
+          using('.doc-example-live').input('person2').enter('Vojta');
+          expect(element('.doc-example-live ng-pluralize:last').text()).
+              toBe('Di, Vojta and 2 other people are viewing.');
+        });
+      </doc:scenario>
+    </doc:example>
+ */
+var ngPluralizeDirective = ['$locale', '$interpolate', function($locale, $interpolate) {
+  var BRACE = /{}/g;
+  return {
+    restrict: 'EA',
+    link: function(scope, element, attr) {
+      var numberExp = attr.count,
+          whenExp = element.attr(attr.$attr.when), // this is because we have {{}} in attrs
+          offset = attr.offset || 0,
+          whens = scope.$eval(whenExp),
+          whensExpFns = {},
+          startSymbol = $interpolate.startSymbol(),
+          endSymbol = $interpolate.endSymbol();
+
+      forEach(whens, function(expression, key) {
+        whensExpFns[key] =
+          $interpolate(expression.replace(BRACE, startSymbol + numberExp + '-' +
+            offset + endSymbol));
+      });
+
+      scope.$watch(function ngPluralizeWatch() {
+        var value = parseFloat(scope.$eval(numberExp));
+
+        if (!isNaN(value)) {
+          //if explicit number rule such as 1, 2, 3... is defined, just use it. Otherwise,
+          //check it against pluralization rules in $locale service
+          if (!(value in whens)) value = $locale.pluralCat(value - offset);
+           return whensExpFns[value](scope, element, true);
+        } else {
+          return '';
+        }
+      }, function ngPluralizeWatchAction(newVal) {
+        element.text(newVal);
+      });
+    }
+  };
+}];
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngRepeat
+ *
+ * @description
+ * The `ngRepeat` directive instantiates a template once per item from a collection. Each template
+ * instance gets its own scope, where the given loop variable is set to the current collection item,
+ * and `$index` is set to the item index or key.
+ *
+ * Special properties are exposed on the local scope of each template instance, including:
+ *
+ *   * `$index` â€“ `{number}` â€“ iterator offset of the repeated element (0..length-1)
+ *   * `$first` â€“ `{boolean}` â€“ true if the repeated element is first in the iterator.
+ *   * `$middle` â€“ `{boolean}` â€“ true if the repeated element is between the first and last in the iterator.
+ *   * `$last` â€“ `{boolean}` â€“ true if the repeated element is last in the iterator.
+ *
+ *
+ * @element ANY
+ * @scope
+ * @priority 1000
+ * @param {repeat_expression} ngRepeat The expression indicating how to enumerate a collection. Two
+ *   formats are currently supported:
+ *
+ *   * `variable in expression` â€“ where variable is the user defined loop variable and `expression`
+ *     is a scope expression giving the collection to enumerate.
+ *
+ *     For example: `track in cd.tracks`.
+ *
+ *   * `(key, value) in expression` â€“ where `key` and `value` can be any user defined identifiers,
+ *     and `expression` is the scope expression giving the collection to enumerate.
+ *
+ *     For example: `(name, age) in {'adam':10, 'amalie':12}`.
+ *
+ * @example
+ * This example initializes the scope to a list of names and
+ * then uses `ngRepeat` to display every person:
+    <doc:example>
+      <doc:source>
+        <div ng-init="friends = [{name:'John', age:25}, {name:'Mary', age:28}]">
+          I have {{friends.length}} friends. They are:
+          <ul>
+            <li ng-repeat="friend in friends">
+              [{{$index + 1}}] {{friend.name}} who is {{friend.age}} years old.
+            </li>
+          </ul>
+        </div>
+      </doc:source>
+      <doc:scenario>
+         it('should check ng-repeat', function() {
+           var r = using('.doc-example-live').repeater('ul li');
+           expect(r.count()).toBe(2);
+           expect(r.row(0)).toEqual(["1","John","25"]);
+           expect(r.row(1)).toEqual(["2","Mary","28"]);
+         });
+      </doc:scenario>
+    </doc:example>
+ */
+var ngRepeatDirective = ngDirective({
+  transclude: 'element',
+  priority: 1000,
+  terminal: true,
+  compile: function(element, attr, linker) {
+    return function(scope, iterStartElement, attr){
+      var expression = attr.ngRepeat;
+      var match = expression.match(/^\s*(.+)\s+in\s+(.*)\s*$/),
+        lhs, rhs, valueIdent, keyIdent;
+      if (! match) {
+        throw Error("Expected ngRepeat in form of '_item_ in _collection_' but got '" +
+          expression + "'.");
+      }
+      lhs = match[1];
+      rhs = match[2];
+      match = lhs.match(/^(?:([\$\w]+)|\(([\$\w]+)\s*,\s*([\$\w]+)\))$/);
+      if (!match) {
+        throw Error("'item' in 'item in collection' should be identifier or (key, value) but got '" +
+            lhs + "'.");
+      }
+      valueIdent = match[3] || match[1];
+      keyIdent = match[2];
+
+      // Store a list of elements from previous run. This is a hash where key is the item from the
+      // iterator, and the value is an array of objects with following properties.
+      //   - scope: bound scope
+      //   - element: previous element.
+      //   - index: position
+      // We need an array of these objects since the same object can be returned from the iterator.
+      // We expect this to be a rare case.
+      var lastOrder = new HashQueueMap();
+
+      scope.$watch(function ngRepeatWatch(scope){
+        var index, length,
+            collection = scope.$eval(rhs),
+            cursor = iterStartElement,     // current position of the node
+            // Same as lastOrder but it has the current state. It will become the
+            // lastOrder on the next iteration.
+            nextOrder = new HashQueueMap(),
+            arrayBound,
+            childScope,
+            key, value, // key/value of iteration
+            array,
+            last;       // last object information {scope, element, index}
+
+
+
+        if (!isArray(collection)) {
+          // if object, extract keys, sort them and use to determine order of iteration over obj props
+          array = [];
+          for(key in collection) {
+            if (collection.hasOwnProperty(key) && key.charAt(0) != '$') {
+              array.push(key);
+            }
+          }
+          array.sort();
+        } else {
+          array = collection || [];
+        }
+
+        arrayBound = array.length-1;
+
+        // we are not using forEach for perf reasons (trying to avoid #call)
+        for (index = 0, length = array.length; index < length; index++) {
+          key = (collection === array) ? index : array[index];
+          value = collection[key];
+
+          last = lastOrder.shift(value);
+
+          if (last) {
+            // if we have already seen this object, then we need to reuse the
+            // associated scope/element
+            childScope = last.scope;
+            nextOrder.push(value, last);
+
+            if (index === last.index) {
+              // do nothing
+              cursor = last.element;
+            } else {
+              // existing item which got moved
+              last.index = index;
+              // This may be a noop, if the element is next, but I don't know of a good way to
+              // figure this out,  since it would require extra DOM access, so let's just hope that
+              // the browsers realizes that it is noop, and treats it as such.
+              cursor.after(last.element);
+              cursor = last.element;
+            }
+          } else {
+            // new item which we don't know about
+            childScope = scope.$new();
+          }
+
+          childScope[valueIdent] = value;
+          if (keyIdent) childScope[keyIdent] = key;
+          childScope.$index = index;
+
+          childScope.$first = (index === 0);
+          childScope.$last = (index === arrayBound);
+          childScope.$middle = !(childScope.$first || childScope.$last);
+
+          if (!last) {
+            linker(childScope, function(clone){
+              cursor.after(clone);
+              last = {
+                  scope: childScope,
+                  element: (cursor = clone),
+                  index: index
+                };
+              nextOrder.push(value, last);
+            });
+          }
+        }
+
+        //shrink children
+        for (key in lastOrder) {
+          if (lastOrder.hasOwnProperty(key)) {
+            array = lastOrder[key];
+            while(array.length) {
+              value = array.pop();
+              value.element.remove();
+              value.scope.$destroy();
+            }
+          }
+        }
+
+        lastOrder = nextOrder;
+      });
+    };
+  }
+});
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngShow
+ *
+ * @description
+ * The `ngShow` and `ngHide` directives show or hide a portion of the DOM tree (HTML)
+ * conditionally.
+ *
+ * @element ANY
+ * @param {expression} ngShow If the {@link guide/expression expression} is truthy
+ *     then the element is shown or hidden respectively.
+ *
+ * @example
+   <doc:example>
+     <doc:source>
+        Click me: <input type="checkbox" ng-model="checked"><br/>
+        Show: <span ng-show="checked">I show up when your checkbox is checked.</span> <br/>
+        Hide: <span ng-hide="checked">I hide when your checkbox is checked.</span>
+     </doc:source>
+     <doc:scenario>
+       it('should check ng-show / ng-hide', function() {
+         expect(element('.doc-example-live span:first:hidden').count()).toEqual(1);
+         expect(element('.doc-example-live span:last:visible').count()).toEqual(1);
+
+         input('checked').check();
+
+         expect(element('.doc-example-live span:first:visible').count()).toEqual(1);
+         expect(element('.doc-example-live span:last:hidden').count()).toEqual(1);
+       });
+     </doc:scenario>
+   </doc:example>
+ */
+//TODO(misko): refactor to remove element from the DOM
+var ngShowDirective = ngDirective(function(scope, element, attr){
+  scope.$watch(attr.ngShow, function ngShowWatchAction(value){
+    element.css('display', toBoolean(value) ? '' : 'none');
+  });
+});
+
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngHide
+ *
+ * @description
+ * The `ngHide` and `ngShow` directives hide or show a portion of the DOM tree (HTML)
+ * conditionally.
+ *
+ * @element ANY
+ * @param {expression} ngHide If the {@link guide/expression expression} is truthy then
+ *     the element is shown or hidden respectively.
+ *
+ * @example
+   <doc:example>
+     <doc:source>
+        Click me: <input type="checkbox" ng-model="checked"><br/>
+        Show: <span ng-show="checked">I show up when you checkbox is checked?</span> <br/>
+        Hide: <span ng-hide="checked">I hide when you checkbox is checked?</span>
+     </doc:source>
+     <doc:scenario>
+       it('should check ng-show / ng-hide', function() {
+         expect(element('.doc-example-live span:first:hidden').count()).toEqual(1);
+         expect(element('.doc-example-live span:last:visible').count()).toEqual(1);
+
+         input('checked').check();
+
+         expect(element('.doc-example-live span:first:visible').count()).toEqual(1);
+         expect(element('.doc-example-live span:last:hidden').count()).toEqual(1);
+       });
+     </doc:scenario>
+   </doc:example>
+ */
+//TODO(misko): refactor to remove element from the DOM
+var ngHideDirective = ngDirective(function(scope, element, attr){
+  scope.$watch(attr.ngHide, function ngHideWatchAction(value){
+    element.css('display', toBoolean(value) ? 'none' : '');
+  });
+});
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngStyle
+ *
+ * @description
+ * The `ngStyle` directive allows you to set CSS style on an HTML element conditionally.
+ *
+ * @element ANY
+ * @param {expression} ngStyle {@link guide/expression Expression} which evals to an
+ *      object whose keys are CSS style names and values are corresponding values for those CSS
+ *      keys.
+ *
+ * @example
+   <example>
+     <file name="index.html">
+        <input type="button" value="set" ng-click="myStyle={color:'red'}">
+        <input type="button" value="clear" ng-click="myStyle={}">
+        <br/>
+        <span ng-style="myStyle">Sample Text</span>
+        <pre>myStyle={{myStyle}}</pre>
+     </file>
+     <file name="style.css">
+       span {
+         color: black;
+       }
+     </file>
+     <file name="scenario.js">
+       it('should check ng-style', function() {
+         expect(element('.doc-example-live span').css('color')).toBe('rgb(0, 0, 0)');
+         element('.doc-example-live :button[value=set]').click();
+         expect(element('.doc-example-live span').css('color')).toBe('rgb(255, 0, 0)');
+         element('.doc-example-live :button[value=clear]').click();
+         expect(element('.doc-example-live span').css('color')).toBe('rgb(0, 0, 0)');
+       });
+     </file>
+   </example>
+ */
+var ngStyleDirective = ngDirective(function(scope, element, attr) {
+  scope.$watch(attr.ngStyle, function ngStyleWatchAction(newStyles, oldStyles) {
+    if (oldStyles && (newStyles !== oldStyles)) {
+      forEach(oldStyles, function(val, style) { element.css(style, '');});
+    }
+    if (newStyles) element.css(newStyles);
+  }, true);
+});
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngSwitch
+ * @restrict EA
+ *
+ * @description
+ * Conditionally change the DOM structure.
+ *
+ * @usage
+ * <ANY ng-switch="expression">
+ *   <ANY ng-switch-when="matchValue1">...</ANY>
+ *   <ANY ng-switch-when="matchValue2">...</ANY>
+ *   ...
+ *   <ANY ng-switch-default>...</ANY>
+ * </ANY>
+ *
+ * @scope
+ * @param {*} ngSwitch|on expression to match against <tt>ng-switch-when</tt>.
+ * @paramDescription
+ * On child elments add:
+ *
+ * * `ngSwitchWhen`: the case statement to match against. If match then this
+ *   case will be displayed.
+ * * `ngSwitchDefault`: the default case when no other casses match.
+ *
+ * @example
+    <doc:example>
+      <doc:source>
+        <script>
+          function Ctrl($scope) {
+            $scope.items = ['settings', 'home', 'other'];
+            $scope.selection = $scope.items[0];
+          }
+        </script>
+        <div ng-controller="Ctrl">
+          <select ng-model="selection" ng-options="item for item in items">
+          </select>
+          <tt>selection={{selection}}</tt>
+          <hr/>
+          <div ng-switch on="selection" >
+            <div ng-switch-when="settings">Settings Div</div>
+            <span ng-switch-when="home">Home Span</span>
+            <span ng-switch-default>default</span>
+          </div>
+        </div>
+      </doc:source>
+      <doc:scenario>
+        it('should start in settings', function() {
+         expect(element('.doc-example-live [ng-switch]').text()).toMatch(/Settings Div/);
+        });
+        it('should change to home', function() {
+         select('selection').option('home');
+         expect(element('.doc-example-live [ng-switch]').text()).toMatch(/Home Span/);
+        });
+        it('should select deafault', function() {
+         select('selection').option('other');
+         expect(element('.doc-example-live [ng-switch]').text()).toMatch(/default/);
+        });
+      </doc:scenario>
+    </doc:example>
+ */
+var NG_SWITCH = 'ng-switch';
+var ngSwitchDirective = valueFn({
+  restrict: 'EA',
+  require: 'ngSwitch',
+  // asks for $scope to fool the BC controller module
+  controller: ['$scope', function ngSwitchController() {
+    this.cases = {};
+  }],
+  link: function(scope, element, attr, ctrl) {
+    var watchExpr = attr.ngSwitch || attr.on,
+        selectedTransclude,
+        selectedElement,
+        selectedScope;
+
+    scope.$watch(watchExpr, function ngSwitchWatchAction(value) {
+      if (selectedElement) {
+        selectedScope.$destroy();
+        selectedElement.remove();
+        selectedElement = selectedScope = null;
+      }
+      if ((selectedTransclude = ctrl.cases['!' + value] || ctrl.cases['?'])) {
+        scope.$eval(attr.change);
+        selectedScope = scope.$new();
+        selectedTransclude(selectedScope, function(caseElement) {
+          selectedElement = caseElement;
+          element.append(caseElement);
+        });
+      }
+    });
+  }
+});
+
+var ngSwitchWhenDirective = ngDirective({
+  transclude: 'element',
+  priority: 500,
+  require: '^ngSwitch',
+  compile: function(element, attrs, transclude) {
+    return function(scope, element, attr, ctrl) {
+      ctrl.cases['!' + attrs.ngSwitchWhen] = transclude;
+    };
+  }
+});
+
+var ngSwitchDefaultDirective = ngDirective({
+  transclude: 'element',
+  priority: 500,
+  require: '^ngSwitch',
+  compile: function(element, attrs, transclude) {
+    return function(scope, element, attr, ctrl) {
+      ctrl.cases['?'] = transclude;
+    };
+  }
+});
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngTransclude
+ *
+ * @description
+ * Insert the transcluded DOM here.
+ *
+ * @element ANY
+ *
+ * @example
+   <doc:example module="transclude">
+     <doc:source>
+       <script>
+         function Ctrl($scope) {
+           $scope.title = 'Lorem Ipsum';
+           $scope.text = 'Neque porro quisquam est qui dolorem ipsum quia dolor...';
+         }
+
+         angular.module('transclude', [])
+          .directive('pane', function(){
+             return {
+               restrict: 'E',
+               transclude: true,
+               scope: 'isolate',
+               locals: { title:'bind' },
+               template: '<div style="border: 1px solid black;">' +
+                           '<div style="background-color: gray">{{title}}</div>' +
+                           '<div ng-transclude></div>' +
+                         '</div>'
+             };
+         });
+       </script>
+       <div ng-controller="Ctrl">
+         <input ng-model="title"><br>
+         <textarea ng-model="text"></textarea> <br/>
+         <pane title="{{title}}">{{text}}</pane>
+       </div>
+     </doc:source>
+     <doc:scenario>
+        it('should have transcluded', function() {
+          input('title').enter('TITLE');
+          input('text').enter('TEXT');
+          expect(binding('title')).toEqual('TITLE');
+          expect(binding('text')).toEqual('TEXT');
+        });
+     </doc:scenario>
+   </doc:example>
+ *
+ */
+var ngTranscludeDirective = ngDirective({
+  controller: ['$transclude', '$element', function($transclude, $element) {
+    $transclude(function(clone) {
+      $element.append(clone);
+    });
+  }]
+});
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:ngView
+ * @restrict ECA
+ *
+ * @description
+ * # Overview
+ * `ngView` is a directive that complements the {@link ng.$route $route} service by
+ * including the rendered template of the current route into the main layout (`index.html`) file.
+ * Every time the current route changes, the included view changes with it according to the
+ * configuration of the `$route` service.
+ *
+ * @scope
+ * @example
+    <example module="ngView">
+      <file name="index.html">
+        <div ng-controller="MainCntl">
+          Choose:
+          <a href="Book/Moby">Moby</a> |
+          <a href="Book/Moby/ch/1">Moby: Ch1</a> |
+          <a href="Book/Gatsby">Gatsby</a> |
+          <a href="Book/Gatsby/ch/4?key=value">Gatsby: Ch4</a> |
+          <a href="Book/Scarlet">Scarlet Letter</a><br/>
+
+          <div ng-view></div>
+          <hr />
+
+          <pre>$location.path() = {{$location.path()}}</pre>
+          <pre>$route.current.templateUrl = {{$route.current.templateUrl}}</pre>
+          <pre>$route.current.params = {{$route.current.params}}</pre>
+          <pre>$route.current.scope.name = {{$route.current.scope.name}}</pre>
+          <pre>$routeParams = {{$routeParams}}</pre>
+        </div>
+      </file>
+
+      <file name="book.html">
+        controller: {{name}}<br />
+        Book Id: {{params.bookId}}<br />
+      </file>
+
+      <file name="chapter.html">
+        controller: {{name}}<br />
+        Book Id: {{params.bookId}}<br />
+        Chapter Id: {{params.chapterId}}
+      </file>
+
+      <file name="script.js">
+        angular.module('ngView', [], function($routeProvider, $locationProvider) {
+          $routeProvider.when('/Book/:bookId', {
+            templateUrl: 'book.html',
+            controller: BookCntl
+          });
+          $routeProvider.when('/Book/:bookId/ch/:chapterId', {
+            templateUrl: 'chapter.html',
+            controller: ChapterCntl
+          });
+
+          // configure html5 to get links working on jsfiddle
+          $locationProvider.html5Mode(true);
+        });
+
+        function MainCntl($scope, $route, $routeParams, $location) {
+          $scope.$route = $route;
+          $scope.$location = $location;
+          $scope.$routeParams = $routeParams;
+        }
+
+        function BookCntl($scope, $routeParams) {
+          $scope.name = "BookCntl";
+          $scope.params = $routeParams;
+        }
+
+        function ChapterCntl($scope, $routeParams) {
+          $scope.name = "ChapterCntl";
+          $scope.params = $routeParams;
+        }
+      </file>
+
+      <file name="scenario.js">
+        it('should load and compile correct template', function() {
+          element('a:contains("Moby: Ch1")').click();
+          var content = element('.doc-example-live [ng-view]').text();
+          expect(content).toMatch(/controller\: ChapterCntl/);
+          expect(content).toMatch(/Book Id\: Moby/);
+          expect(content).toMatch(/Chapter Id\: 1/);
+
+          element('a:contains("Scarlet")').click();
+          content = element('.doc-example-live [ng-view]').text();
+          expect(content).toMatch(/controller\: BookCntl/);
+          expect(content).toMatch(/Book Id\: Scarlet/);
+        });
+      </file>
+    </example>
+ */
+
+
+/**
+ * @ngdoc event
+ * @name ng.directive:ngView#$viewContentLoaded
+ * @eventOf ng.directive:ngView
+ * @eventType emit on the current ngView scope
+ * @description
+ * Emitted every time the ngView content is reloaded.
+ */
+var ngViewDirective = ['$http', '$templateCache', '$route', '$anchorScroll', '$compile',
+                       '$controller',
+               function($http,   $templateCache,   $route,   $anchorScroll,   $compile,
+                        $controller) {
+  return {
+    restrict: 'ECA',
+    terminal: true,
+    link: function(scope, element, attr) {
+      var lastScope,
+          onloadExp = attr.onload || '';
+
+      scope.$on('$routeChangeSuccess', update);
+      update();
+
+
+      function destroyLastScope() {
+        if (lastScope) {
+          lastScope.$destroy();
+          lastScope = null;
+        }
+      }
+
+      function clearContent() {
+        element.html('');
+        destroyLastScope();
+      }
+
+      function update() {
+        var locals = $route.current && $route.current.locals,
+            template = locals && locals.$template;
+
+        if (template) {
+          element.html(template);
+          destroyLastScope();
+
+          var link = $compile(element.contents()),
+              current = $route.current,
+              controller;
+
+          lastScope = current.scope = scope.$new();
+          if (current.controller) {
+            locals.$scope = lastScope;
+            controller = $controller(current.controller, locals);
+            element.children().data('$ngControllerController', controller);
+          }
+
+          link(lastScope);
+          lastScope.$emit('$viewContentLoaded');
+          lastScope.$eval(onloadExp);
+
+          // $anchorScroll might listen on event...
+          $anchorScroll();
+        } else {
+          clearContent();
+        }
+      }
+    }
+  };
+}];
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:script
+ *
+ * @description
+ * Load content of a script tag, with type `text/ng-template`, into `$templateCache`, so that the
+ * template can be used by `ngInclude`, `ngView` or directive templates.
+ *
+ * @restrict E
+ * @param {'text/ng-template'} type must be set to `'text/ng-template'`
+ *
+ * @example
+  <doc:example>
+    <doc:source>
+      <script type="text/ng-template" id="/tpl.html">
+        Content of the template.
+      </script>
+
+      <a ng-click="currentTpl='/tpl.html'" id="tpl-link">Load inlined template</a>
+      <div id="tpl-content" ng-include src="currentTpl"></div>
+    </doc:source>
+    <doc:scenario>
+      it('should load template defined inside script tag', function() {
+        element('#tpl-link').click();
+        expect(element('#tpl-content').text()).toMatch(/Content of the template/);
+      });
+    </doc:scenario>
+  </doc:example>
+ */
+var scriptDirective = ['$templateCache', function($templateCache) {
+  return {
+    restrict: 'E',
+    terminal: true,
+    compile: function(element, attr) {
+      if (attr.type == 'text/ng-template') {
+        var templateUrl = attr.id,
+            // IE is not consistent, in scripts we have to read .text but in other nodes we have to read .textContent
+            text = element[0].text;
+
+        $templateCache.put(templateUrl, text);
+      }
+    }
+  };
+}];
+
+/**
+ * @ngdoc directive
+ * @name ng.directive:select
+ * @restrict E
+ *
+ * @description
+ * HTML `SELECT` element with angular data-binding.
+ *
+ * # `ngOptions`
+ *
+ * Optionally `ngOptions` attribute can be used to dynamically generate a list of `<option>`
+ * elements for a `<select>` element using an array or an object obtained by evaluating the
+ * `ngOptions` expression.
+ *ËË
+ * When an item in the select menu is select, the value of array element or object property
+ * represented by the selected option will be bound to the model identified by the `ngModel`
+ * directive of the parent select element.
+ *
+ * Optionally, a single hard-coded `<option>` element, with the value set to an empty string, can
+ * be nested into the `<select>` element. This element will then represent `null` or "not selected"
+ * option. See example below for demonstration.
+ *
+ * Note: `ngOptions` provides iterator facility for `<option>` element which should be used instead
+ * of {@link ng.directive:ngRepeat ngRepeat} when you want the
+ * `select` model to be bound to a non-string value. This is because an option element can currently
+ * be bound to string values only.
+ *
+ * @param {string} ngModel Assignable angular expression to data-bind to.
+ * @param {string=} name Property name of the form under which the control is published.
+ * @param {string=} required The control is considered valid only if value is entered.
+ * @param {string=} ngRequired Adds `required` attribute and `required` validation constraint to
+ *    the element when the ngRequired expression evaluates to true. Use `ngRequired` instead of
+ *    `required` when you want to data-bind to the `required` attribute.
+ * @param {comprehension_expression=} ngOptions in one of the following forms:
+ *
+ *   * for array data sources:
+ *     * `label` **`for`** `value` **`in`** `array`
+ *     * `select` **`as`** `label` **`for`** `value` **`in`** `array`
+ *     * `label`  **`group by`** `group` **`for`** `value` **`in`** `array`
+ *     * `select` **`as`** `label` **`group by`** `group` **`for`** `value` **`in`** `array`
+ *   * for object data sources:
+ *     * `label` **`for (`**`key` **`,`** `value`**`) in`** `object`
+ *     * `select` **`as`** `label` **`for (`**`key` **`,`** `value`**`) in`** `object`
+ *     * `label` **`group by`** `group` **`for (`**`key`**`,`** `value`**`) in`** `object`
+ *     * `select` **`as`** `label` **`group by`** `group`
+ *         **`for` `(`**`key`**`,`** `value`**`) in`** `object`
+ *
+ * Where:
+ *
+ *   * `array` / `object`: an expression which evaluates to an array / object to iterate over.
+ *   * `value`: local variable which will refer to each item in the `array` or each property value
+ *      of `object` during iteration.
+ *   * `key`: local variable which will refer to a property name in `object` during iteration.
+ *   * `label`: The result of this expression will be the label for `<option>` element. The
+ *     `expression` will most likely refer to the `value` variable (e.g. `value.propertyName`).
+ *   * `select`: The result of this expression will be bound to the model of the parent `<select>`
+ *      element. If not specified, `select` expression will default to `value`.
+ *   * `group`: The result of this expression will be used to group options using the `<optgroup>`
+ *      DOM element.
+ *
+ * @example
+    <doc:example>
+      <doc:source>
+        <script>
+        function MyCntrl($scope) {
+          $scope.colors = [
+            {name:'black', shade:'dark'},
+            {name:'white', shade:'light'},
+            {name:'red', shade:'dark'},
+            {name:'blue', shade:'dark'},
+            {name:'yellow', shade:'light'}
+          ];
+          $scope.color = $scope.colors[2]; // red
+        }
+        </script>
+        <div ng-controller="MyCntrl">
+          <ul>
+            <li ng-repeat="color in colors">
+              Name: <input ng-model="color.name">
+              [<a href ng-click="colors.splice($index, 1)">X</a>]
+            </li>
+            <li>
+              [<a href ng-click="colors.push({})">add</a>]
+            </li>
+          </ul>
+          <hr/>
+          Color (null not allowed):
+          <select ng-model="color" ng-options="c.name for c in colors"></select><br>
+
+          Color (null allowed):
+          <span  class="nullable">
+            <select ng-model="color" ng-options="c.name for c in colors">
+              <option value="">-- chose color --</option>
+            </select>
+          </span><br/>
+
+          Color grouped by shade:
+          <select ng-model="color" ng-options="c.name group by c.shade for c in colors">
+          </select><br/>
+
+
+          Select <a href ng-click="color={name:'not in list'}">bogus</a>.<br>
+          <hr/>
+          Currently selected: {{ {selected_color:color}  }}
+          <div style="border:solid 1px black; height:20px"
+               ng-style="{'background-color':color.name}">
+          </div>
+        </div>
+      </doc:source>
+      <doc:scenario>
+         it('should check ng-options', function() {
+           expect(binding('{selected_color:color}')).toMatch('red');
+           select('color').option('0');
+           expect(binding('{selected_color:color}')).toMatch('black');
+           using('.nullable').select('color').option('');
+           expect(binding('{selected_color:color}')).toMatch('null');
+         });
+      </doc:scenario>
+    </doc:example>
+ */
+
+var ngOptionsDirective = valueFn({ terminal: true });
+var selectDirective = ['$compile', '$parse', function($compile,   $parse) {
+                         //0000111110000000000022220000000000000000000000333300000000000000444444444444444440000000005555555555555555500000006666666666666666600000000000000077770
+  var NG_OPTIONS_REGEXP = /^\s*(.*?)(?:\s+as\s+(.*?))?(?:\s+group\s+by\s+(.*))?\s+for\s+(?:([\$\w][\$\w\d]*)|(?:\(\s*([\$\w][\$\w\d]*)\s*,\s*([\$\w][\$\w\d]*)\s*\)))\s+in\s+(.*)$/,
+      nullModelCtrl = {$setViewValue: noop};
+
+  return {
+    restrict: 'E',
+    require: ['select', '?ngModel'],
+    controller: ['$element', '$scope', '$attrs', function($element, $scope, $attrs) {
+      var self = this,
+          optionsMap = {},
+          ngModelCtrl = nullModelCtrl,
+          nullOption,
+          unknownOption;
+
+
+      self.databound = $attrs.ngModel;
+
+
+      self.init = function(ngModelCtrl_, nullOption_, unknownOption_) {
+        ngModelCtrl = ngModelCtrl_;
+        nullOption = nullOption_;
+        unknownOption = unknownOption_;
+      }
+
+
+      self.addOption = function(value) {
+        optionsMap[value] = true;
+
+        if (ngModelCtrl.$viewValue == value) {
+          $element.val(value);
+          if (unknownOption.parent()) unknownOption.remove();
+        }
+      };
+
+
+      self.removeOption = function(value) {
+        if (this.hasOption(value)) {
+          delete optionsMap[value];
+          if (ngModelCtrl.$viewValue == value) {
+            this.renderUnknownOption(value);
+          }
+        }
+      };
+
+
+      self.renderUnknownOption = function(val) {
+        var unknownVal = '? ' + hashKey(val) + ' ?';
+        unknownOption.val(unknownVal);
+        $element.prepend(unknownOption);
+        $element.val(unknownVal);
+        unknownOption.prop('selected', true); // needed for IE
+      }
+
+
+      self.hasOption = function(value) {
+        return optionsMap.hasOwnProperty(value);
+      }
+
+      $scope.$on('$destroy', function() {
+        // disable unknown option so that we don't do work when the whole select is being destroyed
+        self.renderUnknownOption = noop;
+      });
+    }],
+
+    link: function(scope, element, attr, ctrls) {
+      // if ngModel is not defined, we don't need to do anything
+      if (!ctrls[1]) return;
+
+      var selectCtrl = ctrls[0],
+          ngModelCtrl = ctrls[1],
+          multiple = attr.multiple,
+          optionsExp = attr.ngOptions,
+          nullOption = false, // if false, user will not be able to select it (used by ngOptions)
+          emptyOption,
+          // we can't just jqLite('<option>') since jqLite is not smart enough
+          // to create it in <select> and IE barfs otherwise.
+          optionTemplate = jqLite(document.createElement('option')),
+          optGroupTemplate =jqLite(document.createElement('optgroup')),
+          unknownOption = optionTemplate.clone();
+
+      // find "null" option
+      for(var i = 0, children = element.children(), ii = children.length; i < ii; i++) {
+        if (children[i].value == '') {
+          emptyOption = nullOption = children.eq(i);
+          break;
+        }
+      }
+
+      selectCtrl.init(ngModelCtrl, nullOption, unknownOption);
+
+      // required validator
+      if (multiple && (attr.required || attr.ngRequired)) {
+        var requiredValidator = function(value) {
+          ngModelCtrl.$setValidity('required', !attr.required || (value && value.length));
+          return value;
+        };
+
+        ngModelCtrl.$parsers.push(requiredValidator);
+        ngModelCtrl.$formatters.unshift(requiredValidator);
+
+        attr.$observe('required', function() {
+          requiredValidator(ngModelCtrl.$viewValue);
+        });
+      }
+
+      if (optionsExp) Options(scope, element, ngModelCtrl);
+      else if (multiple) Multiple(scope, element, ngModelCtrl);
+      else Single(scope, element, ngModelCtrl, selectCtrl);
+
+
+      ////////////////////////////
+
+
+
+      function Single(scope, selectElement, ngModelCtrl, selectCtrl) {
+        ngModelCtrl.$render = function() {
+          var viewValue = ngModelCtrl.$viewValue;
+
+          if (selectCtrl.hasOption(viewValue)) {
+            if (unknownOption.parent()) unknownOption.remove();
+            selectElement.val(viewValue);
+            if (viewValue === '') emptyOption.prop('selected', true); // to make IE9 happy
+          } else {
+            if (isUndefined(viewValue) && emptyOption) {
+              selectElement.val('');
+            } else {
+              selectCtrl.renderUnknownOption(viewValue);
+            }
+          }
+        };
+
+        selectElement.bind('change', function() {
+          scope.$apply(function() {
+            if (unknownOption.parent()) unknownOption.remove();
+            ngModelCtrl.$setViewValue(selectElement.val());
+          });
+        });
+      }
+
+      function Multiple(scope, selectElement, ctrl) {
+        var lastView;
+        ctrl.$render = function() {
+          var items = new HashMap(ctrl.$viewValue);
+          forEach(selectElement.find('option'), function(option) {
+            option.selected = isDefined(items.get(option.value));
+          });
+        };
+
+        // we have to do it on each watch since ngModel watches reference, but
+        // we need to work of an array, so we need to see if anything was inserted/removed
+        scope.$watch(function selectMultipleWatch() {
+          if (!equals(lastView, ctrl.$viewValue)) {
+            lastView = copy(ctrl.$viewValue);
+            ctrl.$render();
+          }
+        });
+
+        selectElement.bind('change', function() {
+          scope.$apply(function() {
+            var array = [];
+            forEach(selectElement.find('option'), function(option) {
+              if (option.selected) {
+                array.push(option.value);
+              }
+            });
+            ctrl.$setViewValue(array);
+          });
+        });
+      }
+
+      function Options(scope, selectElement, ctrl) {
+        var match;
+
+        if (! (match = optionsExp.match(NG_OPTIONS_REGEXP))) {
+          throw Error(
+            "Expected ngOptions in form of '_select_ (as _label_)? for (_key_,)?_value_ in _collection_'" +
+            " but got '" + optionsExp + "'.");
+        }
+
+        var displayFn = $parse(match[2] || match[1]),
+            valueName = match[4] || match[6],
+            keyName = match[5],
+            groupByFn = $parse(match[3] || ''),
+            valueFn = $parse(match[2] ? match[1] : valueName),
+            valuesFn = $parse(match[7]),
+            // This is an array of array of existing option groups in DOM. We try to reuse these if possible
+            // optionGroupsCache[0] is the options with no option group
+            // optionGroupsCache[?][0] is the parent: either the SELECT or OPTGROUP element
+            optionGroupsCache = [[{element: selectElement, label:''}]];
+
+        if (nullOption) {
+          // compile the element since there might be bindings in it
+          $compile(nullOption)(scope);
+
+          // remove the class, which is added automatically because we recompile the element and it
+          // becomes the compilation root
+          nullOption.removeClass('ng-scope');
+
+          // we need to remove it before calling selectElement.html('') because otherwise IE will
+          // remove the label from the element. wtf?
+          nullOption.remove();
+        }
+
+        // clear contents, we'll add what's needed based on the model
+        selectElement.html('');
+
+        selectElement.bind('change', function() {
+          scope.$apply(function() {
+            var optionGroup,
+                collection = valuesFn(scope) || [],
+                locals = {},
+                key, value, optionElement, index, groupIndex, length, groupLength;
+
+            if (multiple) {
+              value = [];
+              for (groupIndex = 0, groupLength = optionGroupsCache.length;
+                   groupIndex < groupLength;
+                   groupIndex++) {
+                // list of options for that group. (first item has the parent)
+                optionGroup = optionGroupsCache[groupIndex];
+
+                for(index = 1, length = optionGroup.length; index < length; index++) {
+                  if ((optionElement = optionGroup[index].element)[0].selected) {
+                    key = optionElement.val();
+                    if (keyName) locals[keyName] = key;
+                    locals[valueName] = collection[key];
+                    value.push(valueFn(scope, locals));
+                  }
+                }
+              }
+            } else {
+              key = selectElement.val();
+              if (key == '?') {
+                value = undefined;
+              } else if (key == ''){
+                value = null;
+              } else {
+                locals[valueName] = collection[key];
+                if (keyName) locals[keyName] = key;
+                value = valueFn(scope, locals);
+              }
+            }
+            ctrl.$setViewValue(value);
+          });
+        });
+
+        ctrl.$render = render;
+
+        // TODO(vojta): can't we optimize this ?
+        scope.$watch(render);
+
+        function render() {
+          var optionGroups = {'':[]}, // Temporary location for the option groups before we render them
+              optionGroupNames = [''],
+              optionGroupName,
+              optionGroup,
+              option,
+              existingParent, existingOptions, existingOption,
+              modelValue = ctrl.$modelValue,
+              values = valuesFn(scope) || [],
+              keys = keyName ? sortedKeys(values) : values,
+              groupLength, length,
+              groupIndex, index,
+              locals = {},
+              selected,
+              selectedSet = false, // nothing is selected yet
+              lastElement,
+              element,
+              label;
+
+          if (multiple) {
+            selectedSet = new HashMap(modelValue);
+          }
+
+          // We now build up the list of options we need (we merge later)
+          for (index = 0; length = keys.length, index < length; index++) {
+               locals[valueName] = values[keyName ? locals[keyName]=keys[index]:index];
+               optionGroupName = groupByFn(scope, locals) || '';
+            if (!(optionGroup = optionGroups[optionGroupName])) {
+              optionGroup = optionGroups[optionGroupName] = [];
+              optionGroupNames.push(optionGroupName);
+            }
+            if (multiple) {
+              selected = selectedSet.remove(valueFn(scope, locals)) != undefined;
+            } else {
+              selected = modelValue === valueFn(scope, locals);
+              selectedSet = selectedSet || selected; // see if at least one item is selected
+            }
+            label = displayFn(scope, locals); // what will be seen by the user
+            label = label === undefined ? '' : label; // doing displayFn(scope, locals) || '' overwrites zero values
+            optionGroup.push({
+              id: keyName ? keys[index] : index,   // either the index into array or key from object
+              label: label,
+              selected: selected                   // determine if we should be selected
+            });
+          }
+          if (!multiple) {
+            if (nullOption || modelValue === null) {
+              // insert null option if we have a placeholder, or the model is null
+              optionGroups[''].unshift({id:'', label:'', selected:!selectedSet});
+            } else if (!selectedSet) {
+              // option could not be found, we have to insert the undefined item
+              optionGroups[''].unshift({id:'?', label:'', selected:true});
+            }
+          }
+
+          // Now we need to update the list of DOM nodes to match the optionGroups we computed above
+          for (groupIndex = 0, groupLength = optionGroupNames.length;
+               groupIndex < groupLength;
+               groupIndex++) {
+            // current option group name or '' if no group
+            optionGroupName = optionGroupNames[groupIndex];
+
+            // list of options for that group. (first item has the parent)
+            optionGroup = optionGroups[optionGroupName];
+
+            if (optionGroupsCache.length <= groupIndex) {
+              // we need to grow the optionGroups
+              existingParent = {
+                element: optGroupTemplate.clone().attr('label', optionGroupName),
+                label: optionGroup.label
+              };
+              existingOptions = [existingParent];
+              optionGroupsCache.push(existingOptions);
+              selectElement.append(existingParent.element);
+            } else {
+              existingOptions = optionGroupsCache[groupIndex];
+              existingParent = existingOptions[0];  // either SELECT (no group) or OPTGROUP element
+
+              // update the OPTGROUP label if not the same.
+              if (existingParent.label != optionGroupName) {
+                existingParent.element.attr('label', existingParent.label = optionGroupName);
+              }
+            }
+
+            lastElement = null;  // start at the beginning
+            for(index = 0, length = optionGroup.length; index < length; index++) {
+              option = optionGroup[index];
+              if ((existingOption = existingOptions[index+1])) {
+                // reuse elements
+                lastElement = existingOption.element;
+                if (existingOption.label !== option.label) {
+                  lastElement.text(existingOption.label = option.label);
+                }
+                if (existingOption.id !== option.id) {
+                  lastElement.val(existingOption.id = option.id);
+                }
+                // lastElement.prop('selected') provided by jQuery has side-effects
+                if (lastElement[0].selected !== option.selected) {
+                  lastElement.prop('selected', (existingOption.selected = option.selected));
+                }
+              } else {
+                // grow elements
+
+                // if it's a null option
+                if (option.id === '' && nullOption) {
+                  // put back the pre-compiled element
+                  element = nullOption;
+                } else {
+                  // jQuery(v1.4.2) Bug: We should be able to chain the method calls, but
+                  // in this version of jQuery on some browser the .text() returns a string
+                  // rather then the element.
+                  (element = optionTemplate.clone())
+                      .val(option.id)
+                      .attr('selected', option.selected)
+                      .text(option.label);
+                }
+
+                existingOptions.push(existingOption = {
+                    element: element,
+                    label: option.label,
+                    id: option.id,
+                    selected: option.selected
+                });
+                if (lastElement) {
+                  lastElement.after(element);
+                } else {
+                  existingParent.element.append(element);
+                }
+                lastElement = element;
+              }
+            }
+            // remove any excessive OPTIONs in a group
+            index++; // increment since the existingOptions[0] is parent element not OPTION
+            while(existingOptions.length > index) {
+              existingOptions.pop().element.remove();
+            }
+          }
+          // remove any excessive OPTGROUPs from select
+          while(optionGroupsCache.length > groupIndex) {
+            optionGroupsCache.pop()[0].element.remove();
+          }
+        }
+      }
+    }
+  }
+}];
+
+var optionDirective = ['$interpolate', function($interpolate) {
+  var nullSelectCtrl = {
+    addOption: noop,
+    removeOption: noop
+  };
+
+  return {
+    restrict: 'E',
+    priority: 100,
+    compile: function(element, attr) {
+      if (isUndefined(attr.value)) {
+        var interpolateFn = $interpolate(element.text(), true);
+        if (!interpolateFn) {
+          attr.$set('value', element.text());
+        }
+      }
+
+      return function (scope, element, attr) {
+        var selectCtrlName = '$selectController',
+            parent = element.parent(),
+            selectCtrl = parent.data(selectCtrlName) ||
+              parent.parent().data(selectCtrlName); // in case we are in optgroup
+
+        if (selectCtrl && selectCtrl.databound) {
+          // For some reason Opera defaults to true and if not overridden this messes up the repeater.
+          // We don't want the view to drive the initialization of the model anyway.
+          element.prop('selected', false);
+        } else {
+          selectCtrl = nullSelectCtrl;
+        }
+
+        if (interpolateFn) {
+          scope.$watch(interpolateFn, function interpolateWatchAction(newVal, oldVal) {
+            attr.$set('value', newVal);
+            if (newVal !== oldVal) selectCtrl.removeOption(oldVal);
+            selectCtrl.addOption(newVal);
+          });
+        } else {
+          selectCtrl.addOption(attr.value);
+        }
+
+        element.bind('$destroy', function() {
+          selectCtrl.removeOption(attr.value);
+        });
+      };
+    }
+  }
+}];
+
+var styleDirective = valueFn({
+  restrict: 'E',
+  terminal: true
+});
+
+  //try to bind to jquery now so that one can write angular.element().read()
+  //but we will rebind on bootstrap again.
+  bindJQuery();
+
+  publishExternalAPI(angular);
+
+  jqLite(document).ready(function() {
+    angularInit(document, bootstrap);
+  });
+
+})(window, document);
+angular.element(document).find('head').append('<style type="text/css">@charset "UTF-8";[ng\\:cloak],[ng-cloak],[data-ng-cloak],[x-ng-cloak],.ng-cloak,.x-ng-cloak{display:none;}ng\\:form{display:block;}</style>');
