@@ -2,7 +2,7 @@ class ApiController < ActionController::Base
 
  before_filter :set_per_page
 
-  PER_PAGE = 250
+  PER_PAGE = 50
 
   respond_to :json
 
