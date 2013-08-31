@@ -11,6 +11,6 @@
 // GO AFTER THE REQUIRES BELOW.
 //
 //= require jquery
-//= require jquery_ujs
-//= require turbolinks
+//= require angular
+//= require angular_js
 //= require_tree .
