@@ -2,6 +2,8 @@ class Task < ActiveRecord::Base
 
   STATUSES = %w(pending completed)
 
+  belongs_to :user
+
   validates :status,      presence: true, inclusion: { in: STATUSES }
   validates :description, presence: true
   validates :user_id,     presence: true
