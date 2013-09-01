@@ -2,7 +2,7 @@
 
   filters: angular.module('filters', [])
 
-  instance: angular.module('App', ['ngResource', 'filters'])
+  instance: angular.module('App', ['ngResource', 'filters', 'ui.compat'])
 
   Lib:
     Map: {}
@@ -13,15 +13,15 @@
 
   init: ->
 
-    @instance.config [ "$httpProvider", "$stateProvider", "$routeProvider", "$locationProvider", ($httpProvider, $stateProvider, $routeProvider, $locationProvider)->
+    @instance.config [ "$httpProvider", "$stateProvider", ($httpProvider, $stateProvider)->
 
       $httpProvider.defaults.headers.common['X-CSRF-Token'] = $('meta[name=csrf-token]').attr('content')
 
       $stateProvider
         .state "tasks",
-          url: "/tasks"
-          templateUrl: ''
-          controller:  ''
+          url: ""
+          template:   JST['templates/tasks/index']()
+          controller:  App.Controllers.Tasks.Index
 
 
     ]

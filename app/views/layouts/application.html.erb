@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html ng-app='App'>
+<html <%= ng_app %>>
   <head>
     <title>Toptal</title>
     <%= stylesheet_link_tag    "application", media: "all" %>
@@ -16,6 +16,8 @@
       <%= link_to 'sign up', new_user_registration_path %>
     <% end %>
   </header>
+
+  <%= ui_view %>
 
   <%= yield %>
 
