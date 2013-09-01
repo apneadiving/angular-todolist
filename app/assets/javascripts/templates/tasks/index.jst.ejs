@@ -3,8 +3,9 @@ You currently have {{ tasks.length }} task(s).
 <ul id='tasks'>
   <li ng-repeat=' task in tasks'>
     <input type='checkbox' ng-model='task.completed' value='completed' ng-change='toggleTaskStatus(task)'>
-    {{ task.description }}
-    <a ng-href='{{ task.edit_path() }}'> Edit Task </a>
+    {{ task.description }} | priority: {{ task.priority }} |
+    <a ng-href='{{ task.edit_path() }}'> Edit Task </a> |
+    <a href="" ng-click='removeTask(task)'> Destroy Task </a>
   </li>
 </ul>
 

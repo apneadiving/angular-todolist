@@ -9,4 +9,10 @@ App.Controllers.Tasks.Index = ['$scope', 'Task', ($scope, Task)->
     else
       Task.reset({ id: task.id })
 
+  $scope.removeTask = (task)->
+    deleteTask = confirm('Are you absolutely sure you want to delete?')
+    if deleteTask
+      task.$remove()
+      $scope.tasks = _.without($scope.tasks, task)
+
 ]
