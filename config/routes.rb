@@ -1,7 +1,12 @@
 Toptal::Application.routes.draw do
 
   namespace :api do
-    resources :tasks
+    resources :tasks do
+      member do
+        put :reset
+        put :complete
+      end
+    end
   end
 
   get 'home', to: 'home#index'

@@ -16,6 +16,18 @@ module Api
     end
 
     def destroy
+      @task.destroy
+      render :show
+    end
+
+    def reset
+      @task.reset
+      render :show
+    end
+
+    def complete
+      @task.complete
+      render :show
     end
 
   end
