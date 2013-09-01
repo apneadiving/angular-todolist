@@ -44,7 +44,6 @@ App.Controllers.Tasks.Index = ['$scope', 'Task', 'notificationsSvc', '$window', 
     refresh_displayable_tasks()
 
   $scope.$watch 'tasks', ->
-    $scope.displayedTasks  = get_tasks_for($scope.displayFilter)
     refresh_displayable_tasks()
 
   $scope.toggleTaskStatus = (task)->
