@@ -2,7 +2,7 @@ App.Controllers.Tasks.Index = ['$scope', 'Task', 'notificationsSvc', '$window', 
 
   base_success_callback = ->
     notificationsSvc.add('success', 'Task successfully updated')
-    refresh_counters()
+    refresh_displayable_tasks()
 
   base_failure_callback = ->
     notificationsSvc.add('error', 'Cannot update the task, sorry...')
@@ -27,7 +27,8 @@ App.Controllers.Tasks.Index = ['$scope', 'Task', 'notificationsSvc', '$window', 
       when 'pending'   then return pending_tasks()
       else return $scope.tasks
 
-  refresh_counters = ->
+  refresh_displayable_tasks = ->
+    $scope.displayedTasks = get_tasks_for($scope.displayFilter)
     $scope.completed_tasks = completed_tasks().length
     $scope.pending_tasks   = pending_tasks().length
 
@@ -40,11 +41,11 @@ App.Controllers.Tasks.Index = ['$scope', 'Task', 'notificationsSvc', '$window', 
     $scope.orderDirection   = true
 
   $scope.$watch 'displayFilter', ->
-    $scope.displayedTasks = get_tasks_for($scope.displayFilter)
+    refresh_displayable_tasks()
 
   $scope.$watch 'tasks', ->
     $scope.displayedTasks  = get_tasks_for($scope.displayFilter)
-    refresh_counters()
+    refresh_displayable_tasks()
 
   $scope.toggleTaskStatus = (task)->
     if task.completed
