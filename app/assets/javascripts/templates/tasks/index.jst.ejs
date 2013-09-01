@@ -1,1 +1,7 @@
-index
+You currently have {{ tasks.length }} task(s).
+
+<ul id='tasks'>
+  <li ng-repeat=' task in tasks'>
+    {{ task.description }}
+  </li>
+</ul>
