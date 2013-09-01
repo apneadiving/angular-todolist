@@ -16,7 +16,6 @@ module Api
     end
 
     def update
-      # @task = current_user.tasks.find(params)
       @task.update_attributes! permitted_params
       render :show
     end
