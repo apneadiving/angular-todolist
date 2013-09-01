@@ -4,6 +4,7 @@ You currently have {{ tasks.length }} task(s).
   <li ng-repeat=' task in tasks'>
     <input type='checkbox' ng-model='task.completed' value='completed' ng-change='toggleTaskStatus(task)'>
     {{ task.description }}
+    <a ng-href='{{ task.edit_path() }}'> Edit Task </a>
   </li>
 </ul>
 

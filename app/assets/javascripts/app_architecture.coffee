@@ -33,5 +33,10 @@
           template:    JST['templates/tasks/new']()
           controller:  App.Controllers.Tasks.New
 
+        .state "tasks.edit",
+          url: "/{id}/edit"
+          template:    JST['templates/tasks/edit']()
+          controller:  App.Controllers.Tasks.Edit
+
     ]
 

@@ -1,7 +1,7 @@
 App.Controllers.Tasks.New = ['$scope', 'Task', ($scope, Task)->
 
   reset_task = ->
-    $scope.task = new Task()
+    $scope.task = Task.build()
 
   $scope.saveTask = ->
     $scope.task.$save()

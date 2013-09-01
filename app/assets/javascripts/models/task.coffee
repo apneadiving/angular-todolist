@@ -2,7 +2,8 @@ App.instance.factory "Task", [ "$resource", ($resource)->
 
   service = $resource "api/tasks/:id/:controller", { id: '@id', controller: '@controller' }, {
     index:    { method: 'GET', isArray: true }
-    show:     { method: 'GET' }
+    get:      { method: 'GET' }
+    update:   { method: 'PUT' }
     complete: { method: 'PUT', params: { controller: 'complete' } }
     reset:    { method: 'PUT', params: { controller: 'reset'    } }
   }
@@ -10,12 +11,15 @@ App.instance.factory "Task", [ "$resource", ($resource)->
 
   class TaskModel
 
+    edit_path: ->
+      "#/tasks/#{ @id }/edit"
+
   factory =
     index: (args, callback)->
       service.index args, factory.build_nested_collection(callback)
 
-    show: (args, callback)->
-      service.show args, factory.build_object(callback)
+    get: (args, callback)->
+      service.get args, factory.build_object(callback)
 
     complete: (args, callback)->
       service.complete args, factory.build_object(callback)

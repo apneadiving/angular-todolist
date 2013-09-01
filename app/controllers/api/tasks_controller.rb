@@ -1,7 +1,7 @@
 module Api
   class TasksController < ApiController
 
-    load_and_authorize_resource except: [:create, :update]
+    load_and_authorize_resource except: [:create]
 
     def index
     end
@@ -16,6 +16,9 @@ module Api
     end
 
     def update
+      # @task = current_user.tasks.find(params)
+      @task.update_attributes permitted_params
+      render :show
     end
 
     def destroy
