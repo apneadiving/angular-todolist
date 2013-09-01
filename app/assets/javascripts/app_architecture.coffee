@@ -18,11 +18,20 @@
       $httpProvider.defaults.headers.common['X-CSRF-Token'] = $('meta[name=csrf-token]').attr('content')
 
       $stateProvider
-        .state "tasks",
-          url: ""
+        .state "root",
+          url: "/"
           template:   JST['templates/tasks/index']()
           controller:  App.Controllers.Tasks.Index
 
+        .state "tasks",
+          url: "/tasks"
+          abstract: true
+          template:  "<div ui-view></div>"
+
+        .state "tasks.new",
+          url: "/new"
+          template:    JST['templates/tasks/new']()
+          controller:  App.Controllers.Tasks.New
 
     ]
 
