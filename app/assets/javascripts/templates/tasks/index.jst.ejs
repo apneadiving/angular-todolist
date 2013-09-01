@@ -2,6 +2,7 @@ You currently have {{ tasks.length }} task(s).
 
 <ul id='tasks'>
   <li ng-repeat=' task in tasks'>
+    <input type='checkbox' ng-model='task.completed' value='completed'>
     {{ task.description }}
   </li>
 </ul>

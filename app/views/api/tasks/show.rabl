@@ -1,1 +1,3 @@
-attributes :description, :status, :priority
+attributes :description, :priority
+
+node(:completed) { |t| t.completed? }
