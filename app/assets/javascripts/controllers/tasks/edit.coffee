@@ -8,6 +8,7 @@ App.Controllers.Tasks.Edit = ['$scope', 'Task', '$state', '$stateParams', 'notif
     $state.transitionTo('root')
 
   update_success_callback = (task)->
+    notificationsSvc.add('success', 'Task successfully updated')
     $scope.task = task
 
   update_error_callback = ->

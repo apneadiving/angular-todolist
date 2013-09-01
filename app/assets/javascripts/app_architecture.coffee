@@ -39,5 +39,6 @@
           controller:  App.Controllers.Tasks.Edit
 
       $urlRouterProvider.when('/tasks', '/')
+      $urlRouterProvider.otherwise('/')
     ]
 

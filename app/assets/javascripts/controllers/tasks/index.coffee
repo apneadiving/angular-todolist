@@ -1,8 +1,19 @@
-App.Controllers.Tasks.Index = ['$scope', 'Task', 'notificationsSvc', ($scope, Task, notificationsSvc)->
+App.Controllers.Tasks.Index = ['$scope', 'Task', 'notificationsSvc', '$window',  ($scope, Task, notificationsSvc, $window)->
 
-  base_success_callback = -> false
+  base_success_callback = ->
+    notificationsSvc.add('success', 'Task successfully updated')
+
   base_failure_callback = ->
     notificationsSvc.add('error', 'Cannot update the task, sorry...')
+
+  delete_success_callback = (task)->
+    ->
+      $scope.tasks = _.without($scope.tasks, task)
+      notificationsSvc.add('success', 'Task successfully updated')
+
+  delete_failure_callback = ->
+    notificationsSvc.add('error', 'Cannot destroy the task, sorry...')
+
 
   Task.index {}, (response)->
     $scope.tasks = response
@@ -14,9 +25,9 @@ App.Controllers.Tasks.Index = ['$scope', 'Task', 'notificationsSvc', ($scope, Ta
       Task.reset { id: task.id }, base_success_callback, base_failure_callback
 
   $scope.removeTask = (task)->
-    deleteTask = confirm('Are you absolutely sure you want to delete?')
+    deleteTask = $window.confirm('Are you absolutely sure you want to delete?')
     if deleteTask
-      task.$remove()
-      $scope.tasks = _.without($scope.tasks, task)
+      task.$remove delete_success_callback(task), delete_failure_callback
+
 
 ]

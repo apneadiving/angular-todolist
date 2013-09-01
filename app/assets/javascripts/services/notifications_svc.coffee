@@ -9,10 +9,11 @@ App.instance.factory 'notificationsSvc', ->
 
   factory =
 
-    add: (type, message)->
+    add: (type, message, animation = 'autofade')->
       _append_notification
         type:    type
         message: message
+        animation: animation
 
     get: ->
       notifications
