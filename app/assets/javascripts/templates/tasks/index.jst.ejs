@@ -1,7 +1,15 @@
-You currently have {{ tasks.length }} task(s).
+<br/>
+You currently have {{ tasks.length }} task(s) (pending: {{ pending_tasks }}, completed: {{ completed_tasks }} )
+<br/>
+<br/>
+Sort by Priority desc <input type='checkbox' ng-model='orderDirection' value='1'>
+<br/>
+Adapt Visible tasks <select ng-model="displayFilter" ng-options="name for name in possibleDisplays"></select><br>
+
+<br/>
 
 <ul id='tasks'>
-  <li ng-repeat=' task in tasks'>
+  <li ng-repeat='task in displayedTasks | orderBy:"priority":orderDirection'>
     <input type='checkbox' ng-model='task.completed' value='completed' ng-change='toggleTaskStatus(task)'>
     {{ task.description }} | priority: {{ task.priority }} |
     <a ng-href='{{ task.edit_path() }}'> Edit Task </a> |
