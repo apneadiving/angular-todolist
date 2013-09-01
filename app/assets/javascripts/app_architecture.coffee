@@ -13,7 +13,7 @@
 
   init: ->
 
-    @instance.config [ "$httpProvider", "$stateProvider", ($httpProvider, $stateProvider)->
+    @instance.config [ "$httpProvider", "$stateProvider", '$urlRouterProvider', ($httpProvider, $stateProvider, $urlRouterProvider)->
 
       $httpProvider.defaults.headers.common['X-CSRF-Token'] = $('meta[name=csrf-token]').attr('content')
 
@@ -38,5 +38,6 @@
           template:    JST['templates/tasks/edit']()
           controller:  App.Controllers.Tasks.Edit
 
+      $urlRouterProvider.when('/tasks', '/')
     ]
 

@@ -1,0 +1,9 @@
+<div id='notifications'>
+
+  <div ng-repeat='notification in notifications.all' class="notification">
+    <div ng-class='notification.type'>
+      {{ notification.message}}
+    </div>
+  </div>
+
+<div>
