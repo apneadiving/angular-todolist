@@ -15,17 +15,17 @@ App.instance.factory "Task", [ "$resource", ($resource)->
       "#/tasks/#{ @id }/edit"
 
   factory =
-    index: (args, callback)->
-      service.index args, factory.build_nested_collection(callback)
+    index: (args, success_callback, error_callback = ->(false))->
+      service.index args, factory.build_nested_collection(success_callback), error_callback
 
-    get: (args, callback)->
-      service.get args, factory.build_object(callback)
+    get: (args, success_callback, error_callback)->
+      service.get args, factory.build_object(success_callback), error_callback
 
-    complete: (args, callback)->
-      service.complete args, factory.build_object(callback)
+    complete: (args, success_callback, error_callback)->
+      service.complete args, factory.build_object(success_callback), error_callback
 
-    reset: (args, callback)->
-      service.reset args, factory.build_object(callback)
+    reset: (args, success_callback, error_callback)->
+      service.reset args, factory.build_object(success_callback), error_callback
 
     build: (params = {})->
       new service(params)

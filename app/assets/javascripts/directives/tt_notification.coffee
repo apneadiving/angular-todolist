@@ -11,10 +11,4 @@ App.instance.directive "tt.notification", ->
       $scope.notifications = notificationsSvc.get()
 
     ]
-
-    link: (scope, element)->
-      element.on 'click', ->
-        element.fadeOut 'slow', ->
-          onClose()
-          scope.onclose()
   }

@@ -11,28 +11,28 @@ module Api
 
     def create
       @task = current_user.tasks.build(permitted_params)
-      @task.save
+      @task.save!
       render :show
     end
 
     def update
       # @task = current_user.tasks.find(params)
-      @task.update_attributes permitted_params
+      @task.update_attributes! permitted_params
       render :show
     end
 
     def destroy
-      @task.destroy
+      @task.destroy!
       render :show
     end
 
     def reset
-      @task.reset
+      @task.reset!
       render :show
     end
 
     def complete
-      @task.complete
+      @task.complete!
       render :show
     end
 
