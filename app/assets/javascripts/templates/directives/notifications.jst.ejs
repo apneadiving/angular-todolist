@@ -1,7 +1,7 @@
 <div id='notifications' class='centered'>
 
   <div ng-repeat='notification in notifications.all' class="notification">
-    <div tt.notification-animation animation-name="notification.animation">
+    <div tt.notification-animation notification="notification">
       <div ng-class='notification.type'>
         {{ notification.message}}
       </div>

@@ -14,8 +14,13 @@ App.instance.factory 'notificationsSvc', ->
         type:    type
         message: message
         animation: animation
+        id:        App.Utils.generate_uuid()
 
     get: ->
       notifications
+
+    mark_as_read: (notification)->
+      notifications.all = _.reject notifications.all, (notif)->
+        notification.id == notif.id
 
   factory
