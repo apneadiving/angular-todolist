@@ -13,7 +13,7 @@
 
   init: ->
 
-    @instance.config [ "$httpProvider", "$stateProvider", '$urlRouterProvider', ($httpProvider, $stateProvider, $urlRouterProvider)->
+    @instance.config [ "$httpProvider", "$stateProvider", '$urlRouterProvider', '$locationProvider', ($httpProvider, $stateProvider, $urlRouterProvider, $locationProvider)->
 
       # $httpProvider.defaults.headers.common['X-CSRF-Token'] = $('meta[name=csrf-token]').attr('content')
 
@@ -70,5 +70,5 @@
       ]
 
       $httpProvider.responseInterceptors.push(interceptor)
-
+      $locationProvider.html5Mode(true).hashPrefix('!');
     ]

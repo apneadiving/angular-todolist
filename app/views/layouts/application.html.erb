@@ -1,6 +1,8 @@
 <!DOCTYPE html>
+
 <html ng-app='App'>
   <head>
+    <base href="/">
     <title>Toptal</title>
     <%= stylesheet_link_tag    "application", media: "all" %>
     <%= javascript_include_tag "application"  %>
@@ -11,11 +13,11 @@
     <div tt.check-user>   </div>
 
     <header ng-controller='App.Controllers.Header'>
-      <a href='#/tasks' ng-show='session.logged_in'> Go to tasks </a>
+      <a href='/tasks' ng-show='session.logged_in'> Go to tasks </a>
 
-      <a href='#/signin' ng-show='!session.logged_in'> signin</a>
+      <a href='/signin' ng-show='!session.logged_in'> signin</a>
 
-      <a href='#/signup' ng-show='!session.logged_in'> signup</a>
+      <a href='/signup' ng-show='!session.logged_in'> signup</a>
 
       <a href='' ng-click='signout()' ng-show='session.logged_in'> signout</a>
     </header>

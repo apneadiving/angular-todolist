@@ -14,9 +14,8 @@ Toptal::Application.routes.draw do
     devise_for :users, controllers: { sessions: "api/sessions", registrations: "api/registrations" }
   end
 
-# devise_for :users
-  get 'home', to: 'home#index'
-
   root to: 'home#index'
+
+  get '*a', to: 'home#catch_all'
 end
 

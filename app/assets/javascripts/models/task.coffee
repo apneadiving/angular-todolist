@@ -12,7 +12,7 @@ App.instance.factory "Task", [ "$resource", ($resource)->
   class TaskModel
 
     edit_path: ->
-      "#/tasks/#{ @id }/edit"
+      "/tasks/#{ @id }/edit"
 
   factory =
     index: (args, success_callback, error_callback = ->(false))->
