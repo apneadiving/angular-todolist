@@ -1,6 +1,6 @@
 App.instance.factory "Task", [ "$resource", ($resource)->
 
-  service = $resource "api/tasks/:id/:controller", { id: '@id', controller: '@controller' }, {
+  service = $resource "/api/tasks/:id/:controller", { id: '@id', controller: '@controller' }, {
     index:    { method: 'GET', isArray: true }
     get:      { method: 'GET' }
     update:   { method: 'PUT' }
