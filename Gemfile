@@ -42,6 +42,8 @@ group :development, :test do
   gem 'pry-rails'
   # Use sqlite3 as the database for Active Record
   gem 'sqlite3'
+  gem 'better_errors'
+  gem 'binding_of_caller'
 end
 # Use ActiveModel has_secure_password
 # gem 'bcrypt-ruby', '~> 3.0.0'

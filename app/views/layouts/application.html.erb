@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html <%= ng_app %>>
+<html ng-app='App'>
   <head>
     <title>Toptal</title>
     <%= stylesheet_link_tag    "application", media: "all" %>
@@ -8,20 +8,21 @@
   </head>
   <body>
 
-  <header>
-    <% if current_user %>
-      <%= link_to 'sign out', destroy_user_session_path, method: :delete %>
-    <% else %>
-      <%= link_to 'sign in', new_user_session_path      %>
-      <%= link_to 'sign up', new_user_registration_path %>
-    <% end %>
-  </header>
+    <div tt.check-user>   </div>
 
-  <div tt.notification> </div>
+    <header ng-controller='App.Controllers.Header'>
+      <a href='#/tasks' ng-show='session.logged_in'> Go to tasks </a>
 
-  <%= ui_view %>
+      <a href='#/signin' ng-show='!session.logged_in'> signin</a>
 
-  <%= yield %>
+      <a href='#/signup' ng-show='!session.logged_in'> signup</a>
+
+      <a href='' ng-click='signout()' ng-show='session.logged_in'> signout</a>
+    </header>
+
+    <div tt.notification> </div>
+
+    <div ui-view="">
 
   </body>
 </html>

@@ -15,30 +15,54 @@
 
     @instance.config [ "$httpProvider", "$stateProvider", '$urlRouterProvider', ($httpProvider, $stateProvider, $urlRouterProvider)->
 
-      $httpProvider.defaults.headers.common['X-CSRF-Token'] = $('meta[name=csrf-token]').attr('content')
+      # $httpProvider.defaults.headers.common['X-CSRF-Token'] = $('meta[name=csrf-token]').attr('content')
 
       $stateProvider
         .state "root",
           url: "/"
-          template:   JST['templates/tasks/index']()
-          controller:  App.Controllers.Tasks.Index
+          template:    JST['templates/home']()
+          controller:  App.Controllers.Home
+          free_access: true
+
+        .state "signin",
+          url: "/signin"
+          template:    JST['templates/signin']()
+          controller:  App.Controllers.Signin
+          free_access: true
 
         .state "tasks",
           url: "/tasks"
-          abstract: true
-          template:  "<div ui-view></div>"
+          template:   JST['templates/tasks/index']()
+          controller:  App.Controllers.Tasks.Index
 
-        .state "tasks.new",
-          url: "/new"
+        .state "new_task",
+          url: "/tasks/new"
           template:    JST['templates/tasks/new']()
           controller:  App.Controllers.Tasks.New
 
-        .state "tasks.edit",
-          url: "/{id}/edit"
+        .state "edit_tasks",
+          url: "/tasks/{id}/edit"
           template:    JST['templates/tasks/edit']()
           controller:  App.Controllers.Tasks.Edit
 
-      $urlRouterProvider.when('/tasks', '/')
       $urlRouterProvider.otherwise('/')
-    ]
 
+
+      interceptor = ['$rootScope', '$q', ($rootScope, $q)->
+
+        success = (response)->
+          response
+
+        error = (response)->
+          if response.status
+            $rootScope.$broadcast('UNAUTHORIZED_PAGE')
+          else
+            $q.reject(response)
+
+        return (promise)->
+          promise.then(success, error)
+      ]
+
+      $httpProvider.responseInterceptors.push(interceptor)
+
+    ]

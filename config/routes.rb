@@ -7,11 +7,15 @@ Toptal::Application.routes.draw do
         put :complete
       end
     end
+    get :check_status
   end
 
-  get 'home', to: 'home#index'
+  scope '/api' do
+    devise_for :users, controllers: { sessions: "api/sessions", registrations: "api/registrations" }
+  end
 
-  devise_for :users
+# devise_for :users
+  get 'home', to: 'home#index'
 
   root to: 'home#index'
 end
