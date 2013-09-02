@@ -5,7 +5,7 @@ App.Controllers.Tasks.Edit = ['$scope', 'Task', '$state', '$stateParams', 'notif
 
   get_error_callback  = ->
     notificationsSvc.add 'error', 'Cannot get expected task'
-    $state.transitionTo('root')
+    $state.transitionTo('tasks')
 
   update_success_callback = (task)->
     notificationsSvc.add('success', 'Task successfully updated')

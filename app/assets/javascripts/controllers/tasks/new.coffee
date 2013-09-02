@@ -2,7 +2,7 @@ App.Controllers.Tasks.New = ['$scope', 'Task', 'notificationsSvc', '$state', ($s
 
   save_success_callback = (task)->
     notificationsSvc.add 'success', 'Task successfully created'
-    $state.transitionTo('root')
+    $state.transitionTo('tasks')
 
   save_error_callback = ->
     notificationsSvc.add 'error', 'An error happened during task save'
