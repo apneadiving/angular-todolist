@@ -13,7 +13,7 @@
 
   init: ->
 
-    @instance.config [ "$httpProvider", "$stateProvider", '$urlRouterProvider', '$locationProvider', ($httpProvider, $stateProvider, $urlRouterProvider, $locationProvider)->
+    @instance.config [ "$httpProvider", "$stateProvider", '$urlRouterProvider', '$locationProvider', '$provide', ($httpProvider, $stateProvider, $urlRouterProvider, $locationProvider, $provide)->
 
       # $httpProvider.defaults.headers.common['X-CSRF-Token'] = $('meta[name=csrf-token]').attr('content')
 
@@ -53,22 +53,17 @@
 
       $urlRouterProvider.otherwise('/')
 
+      $provide.factory 'interceptor401', ['$rootScope', '$q', ($rootScope, $q)->
 
-      interceptor = ['$rootScope', '$q', ($rootScope, $q)->
-
-        success = (response)->
-          response
-
-        error = (response)->
-          if response.status
-            $rootScope.$broadcast('UNAUTHORIZED_PAGE')
-          else
+        (promise)->
+          promise.then (response) ->
+            response
+          ,(response)->
+            if response.status == 401
+              $rootScope.$broadcast('UNAUTHORIZED_PAGE')
             $q.reject(response)
-
-        return (promise)->
-          promise.then(success, error)
       ]
 
-      $httpProvider.responseInterceptors.push(interceptor)
+      $httpProvider.responseInterceptors.push('interceptor401')
       $locationProvider.html5Mode(true).hashPrefix('!');
     ]

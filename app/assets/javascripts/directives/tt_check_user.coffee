@@ -13,6 +13,7 @@ App.instance.directive 'tt.checkUser', ['$rootScope', '$state', 'notificationsSv
 
       $rootScope.$on 'UNAUTHORIZED_PAGE', ->
         sessionSvc.clear_session()
+        $state.transitionTo('root')
 
   factory
 ]

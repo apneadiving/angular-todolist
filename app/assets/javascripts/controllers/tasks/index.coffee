@@ -1,6 +1,6 @@
 App.Controllers.Tasks.Index = ['$scope', 'Task', 'notificationsSvc', '$window', ($scope, Task, notificationsSvc, $window)->
 
-  base_success_callback = ->
+  base_success_callback = (response)->
     notificationsSvc.add('success', 'Task successfully updated')
     refresh_displayable_tasks()
 
