@@ -30,6 +30,12 @@
           controller:  App.Controllers.Signin
           free_access: true
 
+        .state "signup",
+          url: "/signup"
+          template:    JST['templates/signup']()
+          controller:  App.Controllers.Signup
+          free_access: true
+
         .state "tasks",
           url: "/tasks"
           template:   JST['templates/tasks/index']()
