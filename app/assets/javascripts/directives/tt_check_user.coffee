@@ -7,13 +7,12 @@ App.instance.directive 'tt.checkUser', ['$rootScope', '$state', 'notificationsSv
   factory =
     link: ->
       $rootScope.$on '$stateChangeSuccess', (event, currRoute, prevRoute)->
-        if !currRoute.free_access && !sessionSvc.is_logged()
+        if !sessionSvc.is_logged()
           sessionSvc.check_session_on_server (success)->
-            on_error() unless success
+            on_error() if !currRoute.free_access && !success
 
       $rootScope.$on 'UNAUTHORIZED_PAGE', ->
         sessionSvc.clear_session()
-        on_error()
 
   factory
 ]
