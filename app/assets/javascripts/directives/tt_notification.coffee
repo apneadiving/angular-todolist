@@ -1,7 +1,5 @@
 App.instance.directive "tt.notification", ->
 
-  onClose = null
-
   return {
     restrict:   "EACM"
     template: JST['templates/directives/notifications']()
